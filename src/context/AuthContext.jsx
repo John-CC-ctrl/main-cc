@@ -8,18 +8,34 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchProfile(userId) {
+  async function fetchProfile(userId, userEmail) {
+    // Primary lookup: by auth UUID
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
+    if (!error && data) return data
+
     if (error) {
-      console.error('Error fetching profile:', error)
-      return null
+      console.error('Error fetching profile by id:', error.message)
     }
-    return data
+
+    // Fallback: lookup by email. Handles the case where the profile row was
+    // manually inserted before the user's first sign-in and has a wrong UUID.
+    if (userEmail) {
+      const { data: byEmail, error: emailErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', userEmail)
+        .maybeSingle()
+
+      if (!emailErr && byEmail) return byEmail
+      if (emailErr) console.error('Error fetching profile by email:', emailErr.message)
+    }
+
+    return null
   }
 
   useEffect(() => {
@@ -27,7 +43,7 @@ export function AuthProvider({ children }) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        const profileData = await fetchProfile(session.user.id)
+        const profileData = await fetchProfile(session.user.id, session.user.email)
         setProfile(profileData)
       }
       setLoading(false)
@@ -38,7 +54,7 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         setUser(session?.user ?? null)
         if (session?.user) {
-          const profileData = await fetchProfile(session.user.id)
+          const profileData = await fetchProfile(session.user.id, session.user.email)
           setProfile(profileData)
         } else {
           setProfile(null)
