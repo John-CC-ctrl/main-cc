@@ -15,10 +15,16 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- Policy: users can read their own profile
+-- Policy: users can read their own profile (by auth UUID)
 CREATE POLICY "Users can read own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
+
+-- Policy: users can read their own profile by email (fallback for rows
+-- pre-inserted before first OAuth sign-in, where the id may differ)
+CREATE POLICY "Users can read own profile by email"
+  ON public.profiles FOR SELECT
+  USING (auth.email() = email);
 
 -- Policy: owner can read all profiles
 CREATE POLICY "Owner can read all profiles"
