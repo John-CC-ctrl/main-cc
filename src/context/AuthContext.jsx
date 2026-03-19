@@ -38,33 +38,25 @@ export function AuthProvider({ children }) {
     return null
   }
 
+  // Auth state listener — only updates user, never does async DB work directly.
+  // Doing async DB queries inside onAuthStateChange is unreliable because the
+  // Supabase client's auth headers may not be set yet when the callback fires.
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        const profileData = await fetchProfile(session.user.id, session.user.email)
-        setProfile(profileData)
-      }
+      if (!session?.user) setProfile(null)
       setLoading(false)
     })
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          const profileData = await fetchProfile(session.user.id, session.user.email)
-          setProfile(profileData)
-        } else {
-          setProfile(null)
-        }
-        setLoading(false)
-      }
-    )
-
     return () => subscription.unsubscribe()
   }, [])
+
+  // Profile fetch — runs in a separate effect after auth state has settled,
+  // so the Supabase client is guaranteed to have the auth token set.
+  useEffect(() => {
+    if (!user) return
+    fetchProfile(user.id, user.email).then(setProfile)
+  }, [user?.id])
 
   const signInWithGoogle = () =>
     supabase.auth.signInWithOAuth({
@@ -74,7 +66,9 @@ export function AuthProvider({ children }) {
       },
     })
 
-  const signOut = () => supabase.auth.signOut()
+  // scope: 'local' ensures the session is always cleared locally even if the
+  // token-revocation API call fails, fixing the "stuck signed-in" bug.
+  const signOut = () => supabase.auth.signOut({ scope: 'local' })
 
   const role = profile?.role ?? null
   const firstName = profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'User'
