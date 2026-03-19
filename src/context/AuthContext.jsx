@@ -42,6 +42,12 @@ export function AuthProvider({ children }) {
   // Doing async DB queries inside onAuthStateChange is unreliable because the
   // Supabase client's auth headers may not be set yet when the callback fires.
   useEffect(() => {
+    // getSession covers the initial load (including post-OAuth PKCE redirect)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       if (!session?.user) setProfile(null)
@@ -51,11 +57,19 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Profile fetch — runs in a separate effect after auth state has settled,
-  // so the Supabase client is guaranteed to have the auth token set.
+  // Profile fetch — runs in a separate effect after auth state has settled.
+  // setTimeout(0) defers the DB query to after Supabase has committed the
+  // session internally, ensuring auth headers are present in the request.
   useEffect(() => {
     if (!user) return
-    fetchProfile(user.id, user.email).then(setProfile)
+    const id = setTimeout(() => {
+      console.log('[Auth] fetching profile for', user.id)
+      fetchProfile(user.id, user.email).then((profileData) => {
+        console.log('[Auth] profile result:', profileData)
+        setProfile(profileData)
+      })
+    }, 0)
+    return () => clearTimeout(id)
   }, [user?.id])
 
   const signInWithGoogle = () =>

@@ -26,15 +26,24 @@ CREATE POLICY "Users can read own profile by email"
   ON public.profiles FOR SELECT
   USING (auth.email() = email);
 
+-- Helper: returns the current user's role without touching RLS-protected rows.
+-- SECURITY DEFINER runs as the function owner (postgres), bypassing RLS on the
+-- sub-query and breaking the recursive loop that the policies below would
+-- otherwise create.
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid()
+$$;
+
 -- Policy: owner can read all profiles
 CREATE POLICY "Owner can read all profiles"
   ON public.profiles FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role = 'owner'
-    )
-  );
+  USING (public.current_user_role() = 'owner');
 
 -- Policy: users can update their own profile (role field is protected)
 CREATE POLICY "Users can update own profile"
@@ -42,18 +51,13 @@ CREATE POLICY "Users can update own profile"
   USING (auth.uid() = id)
   WITH CHECK (
     auth.uid() = id AND
-    role = (SELECT role FROM public.profiles WHERE id = auth.uid())
+    role = public.current_user_role()
   );
 
 -- Policy: owner can update any profile (including role)
 CREATE POLICY "Owner can update any profile"
   ON public.profiles FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid() AND role = 'owner'
-    )
-  );
+  USING (public.current_user_role() = 'owner');
 
 -- Function: auto-insert profile row when a new user signs up via OAuth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
