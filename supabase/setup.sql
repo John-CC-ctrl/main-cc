@@ -94,3 +94,72 @@ CREATE TRIGGER on_auth_user_created
 -- After the first owner signs up, run this to promote them:
 -- UPDATE public.profiles SET role = 'owner' WHERE email = 'jay@cobaltclean.com';
 -- ============================================================
+
+-- ============================================================
+-- NDFU (Next-Day Follow-Up) Sales Dashboard
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.ndfu_clients (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name          text,
+  last_name           text,
+  phone               text,
+  email               text,
+  service_type        text,
+  service_date        date,
+  cleaner_name        text,
+  price_paid          numeric,
+  recurring_weekly    numeric,
+  recurring_biweekly  numeric,
+  recurring_monthly   numeric,
+  job_notes           text,
+  ndfu_status         text DEFAULT 'pending'
+                      CHECK (ndfu_status IN ('pending','reached','voicemail','no_answer','converted','not_interested','callback')),
+  ndfu_stage          text DEFAULT 'ndfu1'
+                      CHECK (ndfu_stage IN ('ndfu1','ndfu1_offer','ndfu2','complete')),
+  call_notes          text,
+  feedback            text,
+  best_part           text,
+  interested_in_recurring boolean DEFAULT false,
+  frequency_selected  text,
+  preferred_days      text,
+  preferred_times     text,
+  preferred_cleaner   text,
+  other_preferences   text,
+  offer_expiry        timestamptz,
+  referral_mentioned  boolean DEFAULT false,
+  review_link_sent    boolean DEFAULT false,
+  created_at          timestamptz DEFAULT now(),
+  updated_at          timestamptz DEFAULT now(),
+  created_by          uuid REFERENCES auth.users(id)
+);
+
+ALTER TABLE public.ndfu_clients ENABLE ROW LEVEL SECURITY;
+
+-- Auto-update updated_at on every change
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END;
+$$;
+
+DROP TRIGGER IF EXISTS ndfu_clients_updated_at ON public.ndfu_clients;
+CREATE TRIGGER ndfu_clients_updated_at
+  BEFORE UPDATE ON public.ndfu_clients
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- RLS: all three staff roles can read and write every row
+CREATE POLICY "Staff can select ndfu_clients"
+  ON public.ndfu_clients FOR SELECT
+  USING (public.current_user_role() IN ('owner','office_admin','sales_manager'));
+
+CREATE POLICY "Staff can insert ndfu_clients"
+  ON public.ndfu_clients FOR INSERT
+  WITH CHECK (public.current_user_role() IN ('owner','office_admin','sales_manager'));
+
+CREATE POLICY "Staff can update ndfu_clients"
+  ON public.ndfu_clients FOR UPDATE
+  USING (public.current_user_role() IN ('owner','office_admin','sales_manager'));
+
+CREATE POLICY "Staff can delete ndfu_clients"
+  ON public.ndfu_clients FOR DELETE
+  USING (public.current_user_role() IN ('owner','office_admin','sales_manager'));
