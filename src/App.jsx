@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PricingCalculator from './pages/PricingCalculator'
 import Users from './pages/admin/Users'
+import NDFU from './pages/ndfu'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -32,6 +33,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <PricingCalculator />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* All staff roles */}
+          <Route
+            path="/ndfu"
+            element={
+              <ProtectedRoute>
+                <NDFU />
               </ProtectedRoute>
             }
           />
