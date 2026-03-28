@@ -508,6 +508,242 @@ function NotesSection({ notes, setNotes }) {
   )
 }
 
+// ─── Section 6 — Booking Form ────────────────────────────────
+
+const DAYS_LIST = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function FieldLabel({ children }) {
+  return <label className="block text-xs font-medium text-slate-600 mb-1">{children}</label>
+}
+
+function TextInput({ value, onChange, type = 'text', placeholder = '' }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+    />
+  )
+}
+
+function SelectInput({ value, onChange, options }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+    >
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  )
+}
+
+function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking }) {
+  // Derive initial price
+  const initRecurPrice = () => {
+    if (!pricing) return ''
+    if (quoteServiceType === 'pac') {
+      return String(pricing.pac[pacSel]?.[recurSel] ?? '')
+    }
+    const map = { weekly: pricing.weeklyPx, biweekly: pricing.biweeklyPx, monthly: pricing.monthlyPx }
+    return String(map[recurSel] ?? '')
+  }
+  const init3PackPrice = () => (pricing?.stdLo ? String(pricing.stdLo - 25) : '')
+
+  const [first, setFirst]           = useState('')
+  const [last, setLast]             = useState('')
+  const [email, setEmail]           = useState('')
+  const [phone, setPhone]           = useState('')
+  const [serviceType, setServiceType] = useState(
+    quoteServiceType === 'pac' ? 'Priority Area Clean Recurring' : 'Whole Home Recurring'
+  )
+  const [frequency, setFrequency]   = useState(FREQ_LABELS[recurSel] || 'Bi-Weekly')
+  const [price, setPrice]           = useState(initRecurPrice)
+  const [days, setDays]             = useState([])
+  const [time, setTime]             = useState('')
+  const [cleaner, setCleaner]       = useState('')
+  const [instructions, setInstructions] = useState('')
+
+  const [pkg3Price, setPkg3Price]   = useState(init3PackPrice)
+  const [pkg3Notes, setPkg3Notes]   = useState('')
+
+  const toggleDay = (d) =>
+    setDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d])
+
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-2xl p-6 space-y-5">
+      {/* Closing script */}
+      <div className="border-l-4 border-navy bg-white px-4 py-3 italic text-sm text-slate-700 leading-relaxed rounded-r-lg">
+        "Fantastic! I'll get you set up right now. I just need a few quick details to make sure we serve you perfectly."
+      </div>
+
+      {bookingType === 'recurring' && (
+        <div className="space-y-4">
+          {/* Name row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>First Name *</FieldLabel>
+              <TextInput value={first} onChange={setFirst} placeholder="Jane" />
+            </div>
+            <div>
+              <FieldLabel>Last Name *</FieldLabel>
+              <TextInput value={last} onChange={setLast} placeholder="Smith" />
+            </div>
+          </div>
+
+          {/* Contact row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Email *</FieldLabel>
+              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" />
+            </div>
+            <div>
+              <FieldLabel>Phone *</FieldLabel>
+              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" />
+            </div>
+          </div>
+
+          {/* Service type */}
+          <div>
+            <FieldLabel>Service Type</FieldLabel>
+            <SelectInput
+              value={serviceType}
+              onChange={setServiceType}
+              options={['Whole Home Recurring', 'Priority Area Clean Recurring']}
+            />
+          </div>
+
+          {/* Frequency + Price row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Frequency</FieldLabel>
+              <SelectInput
+                value={frequency}
+                onChange={setFrequency}
+                options={['Weekly', 'Bi-Weekly', 'Monthly']}
+              />
+            </div>
+            <div>
+              <FieldLabel>Price per visit ($)</FieldLabel>
+              <TextInput type="number" value={price} onChange={setPrice} placeholder="0" />
+            </div>
+          </div>
+
+          {/* Preferred days */}
+          <div>
+            <FieldLabel>Preferred Days</FieldLabel>
+            <div className="flex gap-2 flex-wrap mt-1">
+              {DAYS_LIST.map((d) => (
+                <label key={d} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={days.includes(d)}
+                    onChange={() => toggleDay(d)}
+                    className="rounded accent-blue-600"
+                  />
+                  {d}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Time */}
+          <div>
+            <FieldLabel>Preferred Time</FieldLabel>
+            <SelectInput
+              value={time}
+              onChange={setTime}
+              options={['', 'Morning', 'Afternoon', 'Evening']}
+            />
+          </div>
+
+          {/* Cleaner + disclaimer */}
+          <div>
+            <FieldLabel>Preferred Cleaner</FieldLabel>
+            <TextInput value={cleaner} onChange={setCleaner} placeholder="Cleaner name (optional)" />
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              We'll do our best to send your preferred cleaner every time. If unavailable we'll send another great professional and always let you know ahead of time.
+            </p>
+          </div>
+
+          {/* Special instructions */}
+          <div>
+            <FieldLabel>Special Instructions</FieldLabel>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              rows={3}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Pets, access codes, areas to avoid..."
+            />
+          </div>
+
+          {/* Free add-on (read-only) */}
+          {activeOffer === 'freeAddon' && (
+            <div>
+              <FieldLabel>Free Add-On Selected</FieldLabel>
+              <div className="border border-green-300 bg-green-100 rounded-lg px-3 py-2 text-sm text-green-800 font-medium">
+                {addonChoice}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {bookingType === '3pack' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>First Name *</FieldLabel>
+              <TextInput value={first} onChange={setFirst} placeholder="Jane" />
+            </div>
+            <div>
+              <FieldLabel>Last Name *</FieldLabel>
+              <TextInput value={last} onChange={setLast} placeholder="Smith" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Phone *</FieldLabel>
+              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" />
+            </div>
+            <div>
+              <FieldLabel>Email *</FieldLabel>
+              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" />
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Price per clean ($)</FieldLabel>
+            <TextInput type="number" value={pkg3Price} onChange={setPkg3Price} placeholder="0" />
+          </div>
+          <div>
+            <FieldLabel>Scheduling Notes</FieldLabel>
+            <textarea
+              value={pkg3Notes}
+              onChange={(e) => setPkg3Notes(e.target.value)}
+              rows={3}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Preferred days, times, any special notes..."
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Cancel */}
+      <div>
+        <button
+          onClick={() => setShowBooking(false)}
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Section 5 — Quote Summary ───────────────────────────────
 
 function QuoteSummarySection({
@@ -706,9 +942,16 @@ export default function NDFUTool() {
             />
 
             {showBooking && (
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-sm text-slate-600">
-                Booking form coming next step.
-              </div>
+              <BookingForm
+                bookingType={bookingType}
+                pricing={pricing}
+                recurSel={recurSel}
+                pacSel={pacSel}
+                quoteServiceType={quoteServiceType}
+                activeOffer={activeOffer}
+                addonChoice={addonChoice}
+                setShowBooking={setShowBooking}
+              />
             )}
 
             <ScriptSection
