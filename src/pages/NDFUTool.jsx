@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar'
 import TopBar from '../components/TopBar'
 import { calcNDFU } from '../utils/ndfuCalc'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 
 // ─── Helpers ─────────────────────────────────────────────────
 function fmt(n) { return `$${n}` }
@@ -516,14 +517,14 @@ function FieldLabel({ children }) {
   return <label className="block text-xs font-medium text-slate-600 mb-1">{children}</label>
 }
 
-function TextInput({ value, onChange, type = 'text', placeholder = '' }) {
+function TextInput({ value, onChange, type = 'text', placeholder = '', error = false }) {
   return (
     <input
       type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+      className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${error ? 'border-red-400 focus:ring-red-300' : 'border-slate-300 focus:ring-blue-400'}`}
     />
   )
 }
@@ -540,7 +541,7 @@ function SelectInput({ value, onChange, options }) {
   )
 }
 
-function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking }) {
+function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking, userName, onReset }) {
   // Derive initial price
   const initRecurPrice = () => {
     if (!pricing) return ''
@@ -572,6 +573,104 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const toggleDay = (d) =>
     setDays((prev) => prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d])
 
+  const [submitted, setSubmitted]     = useState(false)
+  const [submitting, setSubmitting]   = useState(false)
+  const [errors, setErrors]           = useState({})
+  const [submitError, setSubmitError] = useState(null)
+
+  const offerName = activeOffer ? OFFER_NAMES[activeOffer] : null
+
+  const validate = () => {
+    const e = {}
+    if (!first.trim())  e.first     = 'This field is required'
+    if (!last.trim())   e.last      = 'This field is required'
+    if (!email.trim())  e.email     = 'This field is required'
+    if (!phone.trim())  e.phone     = 'This field is required'
+    if (!frequency)     e.frequency = 'This field is required'
+    if (!price)         e.price     = 'This field is required'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const validate3Pack = () => {
+    const e = {}
+    if (!first.trim())    e.first    = 'This field is required'
+    if (!last.trim())     e.last     = 'This field is required'
+    if (!email.trim())    e.email    = 'This field is required'
+    if (!phone.trim())    e.phone    = 'This field is required'
+    if (!pkg3Price)       e.pkg3Price = 'This field is required'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmitRecurring = async () => {
+    if (!validate()) return
+    setSubmitting(true)
+    setSubmitError(null)
+    const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}`
+    const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
+    setSubmitting(false)
+    if (error) { setSubmitError('Something went wrong. Please try again.') }
+    else        { setSubmitted(true) }
+  }
+
+  const handleSubmit3Pack = async () => {
+    if (!validate3Pack()) return
+    setSubmitting(true)
+    setSubmitError(null)
+    const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.`
+    const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
+    setSubmitting(false)
+    if (error) { setSubmitError('Something went wrong. Please try again.') }
+    else        { setSubmitted(true) }
+  }
+
+  if (submitted) {
+    const displayPrice   = bookingType === 'recurring' ? price : pkg3Price
+    const displayService = bookingType === 'recurring' ? serviceType : 'Standard Clean × 3'
+    const displayFreq    = bookingType === 'recurring' ? frequency : '3 cleans'
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-2xl p-6 space-y-5">
+        <div className="flex flex-col items-center text-center space-y-3 py-4">
+          <div className="text-5xl">✅</div>
+          <h3 className="text-lg font-semibold text-green-800">Booking confirmed! Team has been notified on Slack.</h3>
+        </div>
+        <div className="bg-white border border-green-200 rounded-xl divide-y divide-slate-100 text-sm">
+          <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Client</span>
+            <span className="font-medium text-slate-800">{first} {last}</span>
+          </div>
+          <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Service</span>
+            <span className="font-medium text-slate-800">{displayService}</span>
+          </div>
+          <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Frequency</span>
+            <span className="font-medium text-slate-800">{displayFreq}</span>
+          </div>
+          <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Price</span>
+            <span className="font-medium text-slate-800">${displayPrice} per visit</span>
+          </div>
+          {activeOffer && (
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Offer applied</span>
+              <span className="font-medium text-slate-800">{OFFER_NAMES[activeOffer]}</span>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onReset} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Start New Call
+          </button>
+          <button onClick={() => setShowBooking(false)} className="px-4 py-2 bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-colors">
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-green-50 border border-green-200 rounded-2xl p-6 space-y-5">
       {/* Closing script */}
@@ -585,11 +684,13 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" />
+              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
             </div>
             <div>
               <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" />
+              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
             </div>
           </div>
 
@@ -597,11 +698,13 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" />
+              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
             </div>
             <div>
               <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" />
+              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
             </div>
           </div>
 
@@ -624,10 +727,12 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
                 onChange={setFrequency}
                 options={['Weekly', 'Bi-Weekly', 'Monthly']}
               />
+              {errors.frequency && <p className="text-xs text-red-500 mt-0.5">{errors.frequency}</p>}
             </div>
             <div>
               <FieldLabel>Price per visit ($)</FieldLabel>
-              <TextInput type="number" value={price} onChange={setPrice} placeholder="0" />
+              <TextInput type="number" value={price} onChange={setPrice} placeholder="0" error={!!errors.price} />
+              {errors.price && <p className="text-xs text-red-500 mt-0.5">{errors.price}</p>}
             </div>
           </div>
 
@@ -689,6 +794,15 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               </div>
             </div>
           )}
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmitRecurring}
+            disabled={submitting}
+            className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            {submitting ? 'Sending…' : 'Confirm Booking & Notify Team'}
+          </button>
         </div>
       )}
 
@@ -697,26 +811,31 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" />
+              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
             </div>
             <div>
               <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" />
+              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" />
+              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
             </div>
             <div>
               <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" />
+              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
             </div>
           </div>
           <div>
             <FieldLabel>Price per clean ($)</FieldLabel>
-            <TextInput type="number" value={pkg3Price} onChange={setPkg3Price} placeholder="0" />
+            <TextInput type="number" value={pkg3Price} onChange={setPkg3Price} placeholder="0" error={!!errors.pkg3Price} />
+            {errors.pkg3Price && <p className="text-xs text-red-500 mt-0.5">{errors.pkg3Price}</p>}
           </div>
           <div>
             <FieldLabel>Scheduling Notes</FieldLabel>
@@ -728,11 +847,21 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               placeholder="Preferred days, times, any special notes..."
             />
           </div>
+
+          {/* Submit */}
+          <button
+            onClick={handleSubmit3Pack}
+            disabled={submitting}
+            className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            {submitting ? 'Sending…' : 'Confirm 3 Clean Package & Notify Team'}
+          </button>
         </div>
       )}
 
-      {/* Cancel */}
-      <div>
+      {/* Error + Cancel */}
+      <div className="space-y-2">
+        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
         <button
           onClick={() => setShowBooking(false)}
           className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
@@ -951,6 +1080,8 @@ export default function NDFUTool() {
                 activeOffer={activeOffer}
                 addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
+                userName={firstName}
+                onReset={handleStartOver}
               />
             )}
 
