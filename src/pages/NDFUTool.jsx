@@ -201,6 +201,14 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
 
 const ADDON_OPTIONS = ['Oven Cleaning', 'Inside Fridge', 'Inside Windows']
 
+const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Bi-Weekly', monthly: 'Monthly' }
+
+const OFFER_NAMES = {
+  savings100: '$100 Recurring Sign-Up Savings',
+  pkg3:       '3 Clean Package — $75 savings',
+  freeAddon:  'Free Add-On with Recurring Sign-Up',
+}
+
 function OfferCard({ id, title, subtitle, activeOffer, setActiveOffer, children }) {
   const isChecked  = activeOffer === id
   const isDisabled = activeOffer !== null && !isChecked
@@ -500,6 +508,112 @@ function NotesSection({ notes, setNotes }) {
   )
 }
 
+// ─── Section 5 — Quote Summary ───────────────────────────────
+
+function QuoteSummarySection({
+  pricing, recurSel, pacSel,
+  quoteServiceType, setQuoteServiceType,
+  activeOffer, setShowBooking, setBookingType,
+}) {
+  const whPriceMap = {
+    weekly:   pricing?.weeklyPx,
+    biweekly: pricing?.biweeklyPx,
+    monthly:  pricing?.monthlyPx,
+  }
+  const pacPriceMap = {
+    weekly:   pricing?.pac[pacSel]?.weekly,
+    biweekly: pricing?.pac[pacSel]?.biweekly,
+    monthly:  pricing?.pac[pacSel]?.monthly,
+  }
+
+  const serviceLabel = !pricing
+    ? 'None selected'
+    : quoteServiceType === 'pac'
+      ? 'Priority Area Clean'
+      : 'Whole Home'
+
+  const pricePerVisit = !pricing
+    ? null
+    : quoteServiceType === 'pac'
+      ? pacPriceMap[recurSel]
+      : whPriceMap[recurSel]
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-slate-700">Quote Summary</h2>
+        {/* Service type toggle */}
+        {pricing && (
+          <div className="flex rounded-lg border border-slate-300 overflow-hidden text-xs font-medium">
+            <button
+              onClick={() => setQuoteServiceType('whole_home')}
+              className={`px-3 py-1.5 transition-colors ${quoteServiceType === 'whole_home' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              Whole Home
+            </button>
+            <button
+              onClick={() => setQuoteServiceType('pac')}
+              className={`px-3 py-1.5 transition-colors ${quoteServiceType === 'pac' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              PAC
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Receipt rows */}
+      <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+        <div className="flex justify-between px-4 py-3">
+          <span className="text-slate-500">Service Type</span>
+          <span className="font-medium text-slate-800">{serviceLabel}</span>
+        </div>
+        <div className="flex justify-between px-4 py-3">
+          <span className="text-slate-500">Frequency</span>
+          <span className="font-medium text-slate-800">{FREQ_LABELS[recurSel]}</span>
+        </div>
+        <div className="flex justify-between px-4 py-3">
+          <span className="text-slate-500">Price per visit</span>
+          <span className="font-semibold text-slate-900 text-base">
+            {pricePerVisit != null ? fmt(pricePerVisit) : '—'}
+          </span>
+        </div>
+        <div className="flex justify-between px-4 py-3">
+          <span className="text-slate-500">Active offer</span>
+          <span className="font-medium text-slate-800">
+            {activeOffer ? OFFER_NAMES[activeOffer] : 'None'}
+          </span>
+        </div>
+        {pricing && (
+          <div className="flex justify-between px-4 py-3 bg-slate-50 rounded-b-xl">
+            <span className="text-slate-400 text-xs">Standard clean (non-recurring)</span>
+            <span className="text-slate-500 text-xs font-medium">
+              {fmt(pricing.stdLo)} – {fmt(pricing.stdHi)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Booking buttons */}
+      <div className="flex gap-3 flex-wrap">
+        <button
+          onClick={() => { setShowBooking(true); setBookingType('recurring') }}
+          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+        >
+          Client is Booking Recurring ✓
+        </button>
+        {activeOffer === 'pkg3' && (
+          <button
+            onClick={() => { setShowBooking(true); setBookingType('3pack') }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            3 Clean Package Selected
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main page ───────────────────────────────────────────────
 
 export default function NDFUTool() {
@@ -512,6 +626,10 @@ export default function NDFUTool() {
   const [addonChoice, setAddonChoice] = useState(ADDON_OPTIONS[0])
   const [callNotes, setCallNotes]     = useState('')
   const [toast, setToast]             = useState(null)
+
+  const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
+  const [showBooking, setShowBooking]           = useState(false)
+  const [bookingType, setBookingType]           = useState(null)
 
   // Section 3 needs its own phase/open state — reset by remounting via key
   const [scriptKey, setScriptKey]     = useState(0)
@@ -530,6 +648,9 @@ export default function NDFUTool() {
     setActiveOffer(null)
     setAddonChoice(ADDON_OPTIONS[0])
     setCallNotes('')
+    setQuoteServiceType('whole_home')
+    setShowBooking(false)
+    setBookingType(null)
     setScriptKey((k) => k + 1)
   }
 
@@ -573,6 +694,23 @@ export default function NDFUTool() {
               addonChoice={addonChoice}
               setAddonChoice={setAddonChoice}
             />
+            <QuoteSummarySection
+              pricing={pricing}
+              recurSel={recurSel}
+              pacSel={pacSel}
+              quoteServiceType={quoteServiceType}
+              setQuoteServiceType={setQuoteServiceType}
+              activeOffer={activeOffer}
+              setShowBooking={setShowBooking}
+              setBookingType={setBookingType}
+            />
+
+            {showBooking && (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-sm text-slate-600">
+                Booking form coming next step.
+              </div>
+            )}
+
             <ScriptSection
               key={scriptKey}
               pricing={pricing}
