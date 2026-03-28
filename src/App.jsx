@@ -5,7 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PricingCalculator from './pages/PricingCalculator'
 import Users from './pages/admin/Users'
-import NDFU from './pages/ndfu'
+import NDFUTool from './pages/NDFUTool'
 import NotFound from './pages/NotFound'
 
 export default function App() {
@@ -42,7 +42,7 @@ export default function App() {
             path="/ndfu"
             element={
               <ProtectedRoute>
-                <NDFU />
+                <NDFUTool />
               </ProtectedRoute>
             }
           />

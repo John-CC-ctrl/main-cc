@@ -61,7 +61,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1">
         <NavItem to="/dashboard" label="Dashboard" icon="⊞" />
         <NavItem to="/pricing" label="Pricing Calculator" icon="💲" />
-        <NavItem to="/ndfu" label="NDFU Dashboard" icon="📞" />
+        <NavItem to="/ndfu" label="NDFU Tool" icon="📞" />
         {role === 'owner' && (
           <NavItem to="/admin/users" label="User Management" icon="👥" />
         )}
