@@ -135,6 +135,9 @@ function PacToggle({ label, selected, onClick }) {
 function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel, setPacSel }) {
   const pac = pricing?.pac[pacSel]
 
+  const whPx  = pricing ? { weekly: pricing.weeklyPx, biweekly: pricing.biweeklyPx, monthly: pricing.monthlyPx }[recurSel] : null
+  const showPac = whPx != null && ['A', 'B', 'C'].every((o) => pricing.pac[o][recurSel] < whPx)
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <h2 className="text-base font-semibold text-slate-700">Property &amp; Pricing</h2>
@@ -172,6 +175,7 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
             </div>
           </div>
 
+          {showPac && (
           <div>
             <div className="text-sm font-medium text-slate-600 mb-2">Priority Area Clean (PAC)</div>
             <div className="flex gap-2 mb-4">
@@ -192,6 +196,7 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
               </div>
             )}
           </div>
+          )}
         </>
       )}
     </div>
@@ -240,6 +245,10 @@ function OffersSection({ activeOffer, setActiveOffer, addonChoice, setAddonChoic
         One-Click Offers — <span className="font-normal text-slate-500">Same-Call Booking Tools</span>
       </h2>
 
+      <p className="text-sm italic text-slate-500 leading-relaxed">
+        💡 Use these offers when the client is on the fence. Try: "I can tell this is something that would genuinely make your life easier — what if I threw in a little something to get you started on a schedule with us?"
+      </p>
+
       <OfferCard id="savings100" title="$100 Recurring Sign-Up Savings" subtitle="Spread across your first five recurring visits." activeOffer={activeOffer} setActiveOffer={setActiveOffer}>
         <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
           <li>$25 off your 2nd recurring visit</li>
@@ -266,6 +275,31 @@ function OffersSection({ activeOffer, setActiveOffer, addonChoice, setAddonChoic
           <p className="text-xs text-blue-600 mt-1.5">Applied on any visit the client chooses.</p>
         </div>
       </OfferCard>
+    </div>
+  )
+}
+
+function VoicemailCard({ vmKey, vm, subs, copySms }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className={`border-2 rounded-xl overflow-hidden transition-colors ${expanded ? 'border-blue-400' : 'border-slate-200'}`}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left bg-white hover:bg-slate-50 transition-colors"
+      >
+        <span className="text-sm font-semibold text-slate-700">{vm.label}</span>
+        <span className="text-xs text-slate-400">{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 bg-white border-t border-slate-100">
+          <ScriptBlock text={vm.voice} subs={subs} />
+          <div className="bg-slate-50 rounded-lg px-4 py-3 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">SMS Template</div>
+            {vm.sms}
+          </div>
+          <FlowBtn color="slate" onClick={() => copySms(vm.sms)}>Copy SMS</FlowBtn>
+        </div>
+      )}
     </div>
   )
 }
@@ -329,9 +363,43 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
     showToast('SMS template copied!')
   }
 
+  const [callMode, setCallMode] = useState(null) // null | 'live' | 'voicemail'
+  const handleUndo = () => {
+    setCallMode(null)
+    setPhase('opening')
+    setOpen((o) => ({ ...o, pitch: false, objection: false, review: false }))
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700 px-1">Call Script</h2>
+
+      {/* ── Pickup / Voicemail toggle ── */}
+      {callMode === null ? (
+        <div className="flex gap-3">
+          <button
+            onClick={() => setCallMode('live')}
+            className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
+          >
+            📞 Client Picked Up
+          </button>
+          <button
+            onClick={() => setCallMode('voicemail')}
+            className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
+          >
+            📵 Went to Voicemail
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
+          <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
+          <button onClick={handleUndo} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
+        </div>
+      )}
+
+      {/* ── Live call script ── */}
+      {callMode === 'live' && (
+        <div className="space-y-4">
 
       {/* ── Opening ── */}
       <CollapsibleCard title="Opening" open={open.opening} onToggle={() => toggle('opening')}>
@@ -349,6 +417,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
 
         {phase === 'negative' && (
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-red-600 font-medium">✗ Negative feedback</p>
+              <button onClick={() => setPhase('opening')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
             <ScriptBlock
               text={`"I'm really sorry to hear that — your satisfaction is our top priority. Let me get all the details so we can address this properly for you."`}
               subs={subs}
@@ -370,7 +442,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
               text={`"That's wonderful to hear! What would you say was the best part of the service?"`}
               subs={subs}
             />
-            <p className="text-xs text-green-600 font-medium">✓ Positive — pitch card opened below</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Positive — pitch card opened below</p>
+              <button onClick={() => { setPhase('opening'); setOpen((o) => ({ ...o, pitch: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           </div>
         )}
       </CollapsibleCard>
@@ -417,7 +492,22 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
             </div>
           )}
           {phase === 'interested' && (
-            <p className="text-xs text-green-600 font-medium">✓ Client interested in recurring — proceed with booking</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Client interested in recurring — proceed with booking</p>
+              <button onClick={() => setPhase('positive')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'objection' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-yellow-600 font-medium">↓ Price objection — PAC downsell opened below</p>
+              <button onClick={() => { setPhase('positive'); setOpen((o) => ({ ...o, objection: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'not_interested' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-500 font-medium">✗ Not interested in recurring</p>
+              <button onClick={() => { setPhase('positive'); setOpen((o) => ({ ...o, review: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           )}
         </CollapsibleCard>
       )}
@@ -456,7 +546,16 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
             </div>
           )}
           {phase === 'pac_interested' && (
-            <p className="text-xs text-green-600 font-medium">✓ Client interested in PAC — proceed with booking</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Client interested in PAC — proceed with booking</p>
+              <button onClick={() => setPhase('objection')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'still_not_interested' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-500 font-medium">✗ Still not interested</p>
+              <button onClick={() => { setPhase('objection'); setOpen((o) => ({ ...o, review: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           )}
         </CollapsibleCard>
       )}
@@ -465,29 +564,27 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
       {(phase === 'not_interested' || phase === 'still_not_interested') && (
         <CollapsibleCard title="Review Ask" open={open.review} onToggle={() => toggle('review')}>
           <ScriptBlock
-            text={`"I completely understand. By the way, if you have a moment, we'd love a review — your cleaner actually gets a tip in your name at no cost to you. Can I send you a text link?"`}
+            text={`"I completely understand — we'd love to help you out on an as-needed basis whenever you need us. By the way, since everything went so well on your first appointment, would it be okay if we asked for a quick review? Your cleaner actually gets a tip in your name for having one posted — it's a great mark of their performance and means a lot to the team. Can I send you a text link real quick?"`}
             subs={subs}
           />
           <FlowBtn color="blue" onClick={copyReviewLink}>Copy Review Link</FlowBtn>
         </CollapsibleCard>
       )}
 
-      {/* ── Voicemail Scripts ── */}
-      <CollapsibleCard title="Voicemail Scripts" open={open.voicemail} onToggle={() => toggle('voicemail')}>
-        <div className="space-y-5">
-          {Object.entries(VM_SCRIPTS).map(([key, vm]) => (
-            <div key={key} className="border border-slate-200 rounded-xl p-4 space-y-3">
-              <h4 className="text-sm font-semibold text-slate-700">{vm.label}</h4>
-              <ScriptBlock text={vm.voice} subs={subs} />
-              <div className="bg-slate-50 rounded-lg px-4 py-3 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">SMS Template</div>
-                {vm.sms}
-              </div>
-              <FlowBtn color="slate" onClick={() => copySms(vm.sms)}>Copy SMS</FlowBtn>
-            </div>
-          ))}
         </div>
-      </CollapsibleCard>
+      )}
+
+      {/* ── Voicemail mode ── */}
+      {callMode === 'voicemail' && (
+        <div className="space-y-3">
+          {Object.entries(VM_SCRIPTS).map(([key, vm]) => (
+            <VoicemailCard key={key} vmKey={key} vm={vm} subs={subs} copySms={copySms} />
+          ))}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 leading-relaxed">
+            📋 <strong>Next step:</strong> Change this client to the appropriate next voicemail stage in GHL so they receive the automated follow-up texts. Make a note to follow up again tomorrow to ask for feedback.
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -563,9 +660,15 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [frequency, setFrequency]   = useState(FREQ_LABELS[recurSel] || 'Bi-Weekly')
   const [price, setPrice]           = useState(initRecurPrice)
   const [days, setDays]             = useState([])
+  const [noPreference, setNoPreference] = useState(false)
   const [time, setTime]             = useState('')
+  const [timeOther, setTimeOther]   = useState('')
   const [cleaner, setCleaner]       = useState('')
   const [instructions, setInstructions] = useState('')
+  const [callRecLink, setCallRecLink]   = useState('')
+  const [callTranscript, setCallTranscript] = useState('')
+
+  const [clientOpen, setClientOpen] = useState(false)
 
   const [pkg3Price, setPkg3Price]   = useState(init3PackPrice)
   const [pkg3Notes, setPkg3Notes]   = useState('')
@@ -577,6 +680,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [submitting, setSubmitting]   = useState(false)
   const [errors, setErrors]           = useState({})
   const [submitError, setSubmitError] = useState(null)
+  const [l27Copied, setL27Copied]     = useState(false)
 
   const offerName = activeOffer ? OFFER_NAMES[activeOffer] : null
 
@@ -626,39 +730,139 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   }
 
   if (submitted) {
-    const displayPrice   = bookingType === 'recurring' ? price : pkg3Price
-    const displayService = bookingType === 'recurring' ? serviceType : 'Standard Clean × 3'
-    const displayFreq    = bookingType === 'recurring' ? frequency : '3 cleans'
+    const daysDisplay    = (noPreference || days.length === 0) ? 'No preference / Did not specify' : days.join(', ')
+    const timeDisplay    = time === 'Other' ? (timeOther.trim() || 'Other (not specified)') : (time || 'Not specified')
+    const cleanerDisplay = cleaner.trim() || 'Client did not specify'
+    const instrDisplay   = instructions.trim() || 'None'
+    const offerDisplay   = activeOffer ? OFFER_NAMES[activeOffer] : 'None'
+    const callLinkDisplay = callRecLink.trim() || 'Not provided'
+
+    const l27Text = [
+      'RECURRING CLIENT SETUP',
+      '',
+      `Preferred Cleaner(s): ${cleanerDisplay}`,
+      `Preferred Days: ${daysDisplay}`,
+      `Preferred Time: ${timeDisplay}`,
+      `Special Instructions: ${instrDisplay}`,
+      '',
+      'PRICE QUOTE ON FILE:',
+      `Service: ${serviceType}`,
+      ...(pricing ? [
+        `Non-recurring rate: $${pricing.stdLo} – $${pricing.stdHi}`,
+        `Weekly: $${pricing.weeklyPx}/visit${frequency === 'Weekly' ? ' *' : ''}`,
+        `Bi-Weekly: $${pricing.biweeklyPx}/visit${frequency === 'Bi-Weekly' ? ' *' : ''}`,
+        `Monthly: $${pricing.monthlyPx}/visit${frequency === 'Monthly' ? ' *' : ''}`,
+      ] : []),
+      '',
+      `Active offer at time of booking: ${offerDisplay}`,
+      `Call recording: ${callLinkDisplay}`,
+    ].join('\n')
+
     return (
       <div className="bg-green-50 border border-green-200 rounded-2xl p-6 space-y-5">
-        <div className="flex flex-col items-center text-center space-y-3 py-4">
-          <div className="text-5xl">✅</div>
-          <h3 className="text-lg font-semibold text-green-800">Booking confirmed! Team has been notified on Slack.</h3>
+        {/* Header */}
+        <div className="flex flex-col items-center text-center space-y-2 py-2">
+          <div className="text-4xl">✅</div>
+          <h3 className="text-lg font-semibold text-green-800">Booking confirmed! Team has been notified in #ndfu on Slack.</h3>
         </div>
+
+        {/* Summary */}
         <div className="bg-white border border-green-200 rounded-xl divide-y divide-slate-100 text-sm">
           <div className="flex justify-between px-4 py-3">
             <span className="text-slate-500">Client</span>
             <span className="font-medium text-slate-800">{first} {last}</span>
           </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Service</span>
-            <span className="font-medium text-slate-800">{displayService}</span>
-          </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Frequency</span>
-            <span className="font-medium text-slate-800">{displayFreq}</span>
-          </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Price</span>
-            <span className="font-medium text-slate-800">${displayPrice} per visit</span>
-          </div>
-          {activeOffer && (
+          {email && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Email</span>
+            <span className="font-medium text-slate-800">{email}</span>
+          </div>}
+          {phone && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Phone</span>
+            <span className="font-medium text-slate-800">{phone}</span>
+          </div>}
+          {bookingType === 'recurring' && <>
             <div className="flex justify-between px-4 py-3">
-              <span className="text-slate-500">Offer applied</span>
-              <span className="font-medium text-slate-800">{OFFER_NAMES[activeOffer]}</span>
+              <span className="text-slate-500">Service</span>
+              <span className="font-medium text-slate-800">{serviceType}</span>
             </div>
-          )}
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Frequency</span>
+              <span className="font-medium text-slate-800">{frequency}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Price per visit</span>
+              <span className="font-semibold text-slate-900">${price}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred days</span>
+              <span className="font-medium text-slate-800">{daysDisplay}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred time</span>
+              <span className="font-medium text-slate-800">{timeDisplay}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred cleaner</span>
+              <span className="font-medium text-slate-800">{cleanerDisplay}</span>
+            </div>
+            {instrDisplay !== 'None' && <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Special instructions</span>
+              <span className="font-medium text-slate-800 text-right max-w-xs">{instrDisplay}</span>
+            </div>}
+          </>}
+          {bookingType === '3pack' && <>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Service</span>
+              <span className="font-medium text-slate-800">Standard Clean × 3</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Price per clean</span>
+              <span className="font-semibold text-slate-900">${pkg3Price}</span>
+            </div>
+          </>}
+          {activeOffer && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Offer applied</span>
+            <span className="font-medium text-slate-800">{OFFER_NAMES[activeOffer]}</span>
+          </div>}
+          {callLinkDisplay !== 'Not provided' && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Call recording</span>
+            <span className="font-medium text-slate-800 truncate max-w-xs">{callLinkDisplay}</span>
+          </div>}
         </div>
+
+        {/* L27 Notes — recurring only */}
+        {bookingType === 'recurring' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-700">Launch27 Customer Profile Notes</h4>
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(l27Text).catch(() => {})
+                  setL27Copied(true)
+                  setTimeout(() => setL27Copied(false), 2000)
+                }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+              >
+                {l27Copied ? '✓ Copied!' : 'Copy L27 Notes'}
+              </button>
+            </div>
+            <pre className="bg-slate-800 text-green-300 text-xs rounded-xl p-4 whitespace-pre-wrap font-mono leading-relaxed overflow-auto max-h-72">
+{l27Text}
+            </pre>
+          </div>
+        )}
+
+        {/* Next Steps */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 leading-relaxed">
+          📋 <strong>After this call:</strong>
+          <ul className="mt-2 space-y-1 list-disc list-inside">
+            <li>Paste the notes above into the client's profile on Launch27</li>
+            <li>Confirm recurring appointments are set up and double-checked in L27</li>
+            <li>Acknowledge the team and update performance metrics</li>
+          </ul>
+        </div>
+
+        {/* Action buttons */}
         <div className="flex gap-3">
           <button onClick={onReset} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
             Start New Call
@@ -680,32 +884,47 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
       {bookingType === 'recurring' && (
         <div className="space-y-4">
-          {/* Name row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
-              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
-            </div>
-            <div>
-              <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
-              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
-            </div>
-          </div>
-
-          {/* Contact row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
-              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
-            </div>
-            <div>
-              <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
-              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
-            </div>
+          {/* Client Details collapsible */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setClientOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
+            >
+              <span className="text-sm font-semibold text-slate-700">Client Details</span>
+              <span className="text-xs text-slate-400">{clientOpen ? '▲' : '▼'}</span>
+            </button>
+            {!clientOpen && (
+              <p className="px-4 py-2 text-xs text-slate-400 italic bg-white border-t border-slate-100">Complete these fields when ready to submit to the team.</p>
+            )}
+            {clientOpen && (
+              <div className="px-4 pb-4 pt-3 bg-white border-t border-slate-100 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>First Name *</FieldLabel>
+                    <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+                    {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Last Name *</FieldLabel>
+                    <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+                    {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Email *</FieldLabel>
+                    <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+                    {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Phone *</FieldLabel>
+                    <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+                    {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Service type */}
@@ -741,16 +960,26 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
             <FieldLabel>Preferred Days</FieldLabel>
             <div className="flex gap-2 flex-wrap mt-1">
               {DAYS_LIST.map((d) => (
-                <label key={d} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                <label key={d} className={`flex items-center gap-1.5 text-sm text-slate-700 ${noPreference ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
-                    checked={days.includes(d)}
-                    onChange={() => toggleDay(d)}
+                    checked={!noPreference && days.includes(d)}
+                    onChange={() => !noPreference && toggleDay(d)}
+                    disabled={noPreference}
                     className="rounded accent-blue-600"
                   />
                   {d}
                 </label>
               ))}
+              <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-500 italic ml-1">
+                <input
+                  type="checkbox"
+                  checked={noPreference}
+                  onChange={(e) => { setNoPreference(e.target.checked); if (e.target.checked) setDays([]) }}
+                  className="rounded accent-blue-600"
+                />
+                No Preference / Does Not Matter
+              </label>
             </div>
           </div>
 
@@ -760,8 +989,17 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
             <SelectInput
               value={time}
               onChange={setTime}
-              options={['', 'Morning', 'Afternoon', 'Evening']}
+              options={['', 'Morning', 'Afternoon', 'Other']}
             />
+            {time === 'Other' && (
+              <input
+                type="text"
+                value={timeOther}
+                onChange={(e) => setTimeOther(e.target.value)}
+                placeholder="Please specify preferred time or any timing notes."
+                className="mt-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            )}
           </div>
 
           {/* Cleaner + disclaimer */}
@@ -781,7 +1019,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               onChange={(e) => setInstructions(e.target.value)}
               rows={3}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-              placeholder="Pets, access codes, areas to avoid..."
+              placeholder="Are there any other special preferences you'd like us to note on your work order so we can continue to do a great job for you consistently?"
             />
           </div>
 
@@ -794,6 +1032,22 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               </div>
             </div>
           )}
+
+          {/* Call recording + transcript */}
+          <div>
+            <FieldLabel>Paste Call Recording Link (Dialpad or GHL)</FieldLabel>
+            <TextInput value={callRecLink} onChange={setCallRecLink} placeholder="Paste link here..." />
+          </div>
+          <div>
+            <FieldLabel>Paste Call Transcript</FieldLabel>
+            <textarea
+              value={callTranscript}
+              onChange={(e) => setCallTranscript(e.target.value)}
+              rows={4}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Paste full transcript here if available..."
+            />
+          </div>
 
           {/* Submit */}
           <button
@@ -808,30 +1062,49 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
       {bookingType === '3pack' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
-              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
-            </div>
-            <div>
-              <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
-              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
-            </div>
+          {/* Client Details collapsible */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setClientOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
+            >
+              <span className="text-sm font-semibold text-slate-700">Client Details</span>
+              <span className="text-xs text-slate-400">{clientOpen ? '▲' : '▼'}</span>
+            </button>
+            {!clientOpen && (
+              <p className="px-4 py-2 text-xs text-slate-400 italic bg-white border-t border-slate-100">Complete these fields when ready to submit to the team.</p>
+            )}
+            {clientOpen && (
+              <div className="px-4 pb-4 pt-3 bg-white border-t border-slate-100 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>First Name *</FieldLabel>
+                    <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+                    {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Last Name *</FieldLabel>
+                    <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+                    {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Phone *</FieldLabel>
+                    <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+                    {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Email *</FieldLabel>
+                    <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+                    {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
-              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
-            </div>
-            <div>
-              <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
-              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
-            </div>
-          </div>
+
           <div>
             <FieldLabel>Price per clean ($)</FieldLabel>
             <TextInput type="number" value={pkg3Price} onChange={setPkg3Price} placeholder="0" error={!!errors.pkg3Price} />
@@ -845,6 +1118,22 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               rows={3}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
               placeholder="Preferred days, times, any special notes..."
+            />
+          </div>
+
+          {/* Call recording + transcript */}
+          <div>
+            <FieldLabel>Paste Call Recording Link (Dialpad or GHL)</FieldLabel>
+            <TextInput value={callRecLink} onChange={setCallRecLink} placeholder="Paste link here..." />
+          </div>
+          <div>
+            <FieldLabel>Paste Call Transcript</FieldLabel>
+            <textarea
+              value={callTranscript}
+              onChange={(e) => setCallTranscript(e.target.value)}
+              rows={4}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Paste full transcript here if available..."
             />
           </div>
 
@@ -878,7 +1167,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 function QuoteSummarySection({
   pricing, recurSel, pacSel,
   quoteServiceType, setQuoteServiceType,
-  activeOffer, setShowBooking, setBookingType,
+  activeOffer, addonChoice, setShowBooking, setBookingType,
 }) {
   const whPriceMap = {
     weekly:   pricing?.weeklyPx,
@@ -902,6 +1191,10 @@ function QuoteSummarySection({
     : quoteServiceType === 'pac'
       ? pacPriceMap[recurSel]
       : whPriceMap[recurSel]
+
+  const pkg3PerClean = pricing ? pricing.stdLo - 25 : null
+
+  const [nonBooking, setNonBooking] = useState(null) // null | 'lost' | 'undecided'
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
@@ -948,6 +1241,58 @@ function QuoteSummarySection({
             {activeOffer ? OFFER_NAMES[activeOffer] : 'None'}
           </span>
         </div>
+        {activeOffer === 'savings100' && pricePerVisit != null && (
+          <>
+            {[
+              { label: 'Visit 1', price: pricePerVisit,      note: 'standard rate' },
+              { label: 'Visit 2', price: pricePerVisit - 25, note: '−$25 savings' },
+              { label: 'Visit 3', price: pricePerVisit,      note: 'standard rate' },
+              { label: 'Visit 4', price: pricePerVisit - 25, note: '−$25 savings' },
+              { label: 'Visit 5', price: pricePerVisit - 50, note: '−$50 savings' },
+            ].map(({ label, price, note }) => (
+              <div key={label} className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+                <span className="text-slate-500">{label}</span>
+                <span className="text-slate-700">{fmt(price)} <span className="text-slate-400">({note})</span></span>
+              </div>
+            ))}
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-blue-600 font-semibold">Total savings</span>
+              <span className="text-blue-600 font-semibold">$100 across first 5 visits</span>
+            </div>
+          </>
+        )}
+        {activeOffer === 'pkg3' && pkg3PerClean != null && (
+          <>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Price per clean</span>
+              <span className="text-slate-700">{fmt(pkg3PerClean)} <span className="text-slate-400">(−$25 off standard)</span></span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Total (3 cleans)</span>
+              <span className="font-semibold text-slate-800">{fmt(pkg3PerClean * 3)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-amber-600 font-medium">Note</span>
+              <span className="text-amber-600">Not recurring — follow up after 3rd clean</span>
+            </div>
+          </>
+        )}
+        {activeOffer === 'freeAddon' && (
+          <>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Selected add-on</span>
+              <span className="font-medium text-slate-700">{addonChoice}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Applied on</span>
+              <span className="text-slate-700">Any visit of their choice</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Value</span>
+              <span className="font-semibold text-slate-700">$59</span>
+            </div>
+          </>
+        )}
         {pricing && (
           <div className="flex justify-between px-4 py-3 bg-slate-50 rounded-b-xl">
             <span className="text-slate-400 text-xs">Standard clean (non-recurring)</span>
@@ -975,6 +1320,45 @@ function QuoteSummarySection({
           </button>
         )}
       </div>
+
+      {/* Non-booking journey */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <p className="text-sm font-semibold text-slate-600">Client is NOT booking today</p>
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="nonBooking"
+              checked={nonBooking === 'lost'}
+              onChange={() => setNonBooking('lost')}
+              className="mt-0.5 accent-red-500"
+            />
+            <span className="text-sm text-slate-700">Client explicitly said not interested / not eligible</span>
+          </label>
+          {nonBooking === 'lost' && (
+            <div className="ml-6 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+              📋 Mark this client as <strong>Lost</strong> in GHL. No further follow-up needed.
+            </div>
+          )}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="nonBooking"
+              checked={nonBooking === 'undecided'}
+              onChange={() => setNonBooking('undecided')}
+              className="mt-0.5 accent-amber-500"
+            />
+            <span className="text-sm text-slate-700">Client is undecided / still a possibility</span>
+          </label>
+          {nonBooking === 'undecided' && (
+            <div className="ml-6 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+              📋 Move this client to <strong>Pending Recurring</strong> stage in GHL. Follow up on the next scheduled touch.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -995,6 +1379,7 @@ export default function NDFUTool() {
   const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
   const [showBooking, setShowBooking]           = useState(false)
   const [bookingType, setBookingType]           = useState(null)
+  const [notesDrawerOpen, setNotesDrawerOpen]   = useState(false)
 
   // Section 3 needs its own phase/open state — reset by remounting via key
   const [scriptKey, setScriptKey]     = useState(0)
@@ -1016,6 +1401,7 @@ export default function NDFUTool() {
     setQuoteServiceType('whole_home')
     setShowBooking(false)
     setBookingType(null)
+    setNotesDrawerOpen(false)
     setScriptKey((k) => k + 1)
   }
 
@@ -1033,6 +1419,11 @@ export default function NDFUTool() {
         )}
 
         <main className="flex-1 p-6 overflow-y-auto">
+          {/* ── Pep Talk Banner ── */}
+          <div className="border-l-4 border-navy bg-blue-50 px-5 py-3 rounded-r-xl mb-5 text-sm text-slate-700 leading-relaxed">
+            Every call you make today is an opportunity to genuinely help someone. First, make sure they're happy — that's always the priority. Then, if they loved the service, you're simply offering them the gift of consistency. You're not selling; you're serving. Come in with care, confidence, and the Cobalt standard.
+          </div>
+
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-slate-800">NDFU Sales Call Tool</h1>
             <button
@@ -1043,58 +1434,98 @@ export default function NDFUTool() {
             </button>
           </div>
 
-          <div className="space-y-6 max-w-3xl">
-            <PricingSection
-              pricing={pricing}
-              sqft={sqft}
-              setSqft={setSqft}
-              recurSel={recurSel}
-              setRecurSel={setRecurSel}
-              pacSel={pacSel}
-              setPacSel={setPacSel}
-            />
-            <OffersSection
-              activeOffer={activeOffer}
-              setActiveOffer={setActiveOffer}
-              addonChoice={addonChoice}
-              setAddonChoice={setAddonChoice}
-            />
-            <QuoteSummarySection
-              pricing={pricing}
-              recurSel={recurSel}
-              pacSel={pacSel}
-              quoteServiceType={quoteServiceType}
-              setQuoteServiceType={setQuoteServiceType}
-              activeOffer={activeOffer}
-              setShowBooking={setShowBooking}
-              setBookingType={setBookingType}
-            />
-
-            {showBooking && (
-              <BookingForm
-                bookingType={bookingType}
+          {/* ── Two-column layout: main content + sticky notes ── */}
+          <div className="flex gap-6 items-start">
+            {/* Main content column */}
+            <div className="flex-1 min-w-0 space-y-6">
+              <PricingSection
+                pricing={pricing}
+                sqft={sqft}
+                setSqft={setSqft}
+                recurSel={recurSel}
+                setRecurSel={setRecurSel}
+                pacSel={pacSel}
+                setPacSel={setPacSel}
+              />
+              <OffersSection
+                activeOffer={activeOffer}
+                setActiveOffer={setActiveOffer}
+                addonChoice={addonChoice}
+                setAddonChoice={setAddonChoice}
+              />
+              <QuoteSummarySection
                 pricing={pricing}
                 recurSel={recurSel}
                 pacSel={pacSel}
                 quoteServiceType={quoteServiceType}
+                setQuoteServiceType={setQuoteServiceType}
                 activeOffer={activeOffer}
                 addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
-                userName={firstName}
-                onReset={handleStartOver}
+                setBookingType={setBookingType}
               />
-            )}
 
-            <ScriptSection
-              key={scriptKey}
-              pricing={pricing}
-              pacSel={pacSel}
-              firstName={firstName}
-              toast={toast}
-              showToast={showToast}
-            />
-            <NotesSection notes={callNotes} setNotes={setCallNotes} />
+              {showBooking && (
+                <BookingForm
+                  bookingType={bookingType}
+                  pricing={pricing}
+                  recurSel={recurSel}
+                  pacSel={pacSel}
+                  quoteServiceType={quoteServiceType}
+                  activeOffer={activeOffer}
+                  addonChoice={addonChoice}
+                  setShowBooking={setShowBooking}
+                  userName={firstName}
+                  onReset={handleStartOver}
+                />
+              )}
+
+              <ScriptSection
+                key={scriptKey}
+                pricing={pricing}
+                pacSel={pacSel}
+                firstName={firstName}
+                toast={toast}
+                showToast={showToast}
+              />
+            </div>
+
+            {/* Sticky notes sidebar — desktop only */}
+            <div className="hidden lg:block w-72 shrink-0 sticky top-6 self-start">
+              <NotesSection notes={callNotes} setNotes={setCallNotes} />
+            </div>
           </div>
+
+          {/* Mobile notes bottom drawer */}
+          <div
+            className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl transition-transform duration-300 ${notesDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          >
+            <div className="p-4 space-y-3 max-h-72 flex flex-col">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">Call Notes</h3>
+                <button
+                  onClick={() => setNotesDrawerOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                >✕</button>
+              </div>
+              <textarea
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                rows={5}
+                placeholder="Type notes here as the call progresses — client preferences, feedback, objections, special instructions, pricing discussed..."
+                className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Mobile notes toggle button */}
+          <button
+            className="lg:hidden fixed bottom-5 right-5 z-50 bg-navy text-white w-12 h-12 rounded-full shadow-lg text-xl flex items-center justify-center"
+            onClick={() => setNotesDrawerOpen((v) => !v)}
+            aria-label="Toggle call notes"
+          >
+            📝
+          </button>
         </main>
       </div>
     </div>
