@@ -334,7 +334,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast, callMode 
     setOpen((p) => ({ ...p, pitch: true }))
   }
   const handleNegative = () => setPhase('negative')
-  const handleInterested = () => setPhase('interested')
+  const handleInterested = () => {
+    setPhase('interested')
+    document.getElementById('quote-summary')?.scrollIntoView({ behavior: 'smooth' })
+  }
   const handlePriceObjection = () => {
     setPhase('objection')
     setOpen((p) => ({ ...p, objection: true }))
@@ -628,6 +631,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [price, setPrice]           = useState(initRecurPrice)
   const [days, setDays]             = useState([])
   const [noPreference, setNoPreference] = useState(false)
+  const [firstServiceDate, setFirstServiceDate] = useState('')
   const [time, setTime]             = useState('')
   const [timeOther, setTimeOther]   = useState('')
   const [cleaner, setCleaner]       = useState('')
@@ -653,12 +657,13 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
   const validate = () => {
     const e = {}
-    if (!first.trim())  e.first     = 'This field is required'
-    if (!last.trim())   e.last      = 'This field is required'
-    if (!email.trim())  e.email     = 'This field is required'
-    if (!phone.trim())  e.phone     = 'This field is required'
-    if (!frequency)     e.frequency = 'This field is required'
-    if (!price)         e.price     = 'This field is required'
+    if (!first.trim())       e.first            = 'This field is required'
+    if (!last.trim())        e.last             = 'This field is required'
+    if (!email.trim())       e.email            = 'This field is required'
+    if (!phone.trim())       e.phone            = 'This field is required'
+    if (!frequency)          e.frequency        = 'This field is required'
+    if (!price)              e.price            = 'This field is required'
+    if (!firstServiceDate)   e.firstServiceDate = 'This field is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -711,6 +716,8 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
       `Preferred Days: ${daysDisplay}`,
       `Preferred Time: ${timeDisplay}`,
       `Special Instructions: ${instrDisplay}`,
+      '',
+      `First Recurring Service Date: ${firstServiceDate || 'Not specified'}`,
       '',
       'PRICE QUOTE ON FILE:',
       `Service: ${serviceType}`,
@@ -920,6 +927,18 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               <TextInput type="number" value={price} onChange={setPrice} placeholder="0" error={!!errors.price} />
               {errors.price && <p className="text-xs text-red-500 mt-0.5">{errors.price}</p>}
             </div>
+          </div>
+
+          {/* First Recurring Service Date */}
+          <div>
+            <FieldLabel>First Recurring Service Date *</FieldLabel>
+            <input
+              type="date"
+              value={firstServiceDate}
+              onChange={(e) => setFirstServiceDate(e.target.value)}
+              className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.firstServiceDate ? 'border-red-400' : 'border-slate-300'}`}
+            />
+            {errors.firstServiceDate && <p className="text-xs text-red-500 mt-0.5">{errors.firstServiceDate}</p>}
           </div>
 
           {/* Preferred days */}
@@ -1135,6 +1154,7 @@ function QuoteSummarySection({
   pricing, recurSel, pacSel,
   quoteServiceType, setQuoteServiceType,
   activeOffer, addonChoice, setShowBooking, setBookingType,
+  bookingChoice, setBookingChoice, callNotes, userName, onReset,
 }) {
   const whPriceMap = {
     weekly:   pricing?.weeklyPx,
@@ -1162,9 +1182,23 @@ function QuoteSummarySection({
   const pkg3PerClean = pricing ? pricing.stdLo - 25 : null
 
   const [nonBooking, setNonBooking] = useState(null) // null | 'lost' | 'undecided'
+  const [notified, setNotified]     = useState(false)
+  const [sending, setSending]       = useState(false)
+  const [sendError, setSendError]   = useState(null)
+
+  const handleNotBookingSubmit = async () => {
+    if (!nonBooking) return
+    setSending(true); setSendError(null)
+    const statusLabel = nonBooking === 'lost' ? 'Not Interested / Not Eligible' : 'Undecided — Follow Up'
+    const message = `📋 NDFU Update — Client Not Booking Today\n\nStatus: ${statusLabel}\nBooked by: ${userName}\n\nCall Notes:\n${callNotes || '(none)'}`
+    const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
+    setSending(false)
+    if (error) setSendError('Something went wrong. Please try again.')
+    else        setNotified(true)
+  }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+    <div id="quote-summary" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-slate-700">Quote Summary</h2>
         {/* Service type toggle */}
@@ -1270,39 +1304,57 @@ function QuoteSummarySection({
         )}
       </div>
 
-      {/* Booking buttons */}
-      <div className="flex gap-3 flex-wrap">
+      {/* Choice buttons */}
+      <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={() => { setShowBooking(true); setBookingType('recurring') }}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+          onClick={() => {
+            const next = bookingChoice === 'booking' ? null : 'booking'
+            setBookingChoice(next)
+            if (next !== 'booking') setShowBooking(false)
+            setNonBooking(null); setNotified(false)
+          }}
+          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-colors ${bookingChoice === 'booking' ? 'bg-navy text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
         >
-          Client is Booking Recurring ✓
+          ✓ Client is Booking Recurring
         </button>
-        {activeOffer === 'pkg3' && (
-          <button
-            onClick={() => { setShowBooking(true); setBookingType('3pack') }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            3 Clean Package Selected
-          </button>
-        )}
+        <button
+          onClick={() => {
+            const next = bookingChoice === 'not_booking' ? null : 'not_booking'
+            setBookingChoice(next)
+            if (next !== 'not_booking') setShowBooking(false)
+          }}
+          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-colors ${bookingChoice === 'not_booking' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          ✗ Not Booking Today
+        </button>
       </div>
 
-      {/* Non-booking journey */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-          <p className="text-sm font-semibold text-slate-600">Client is NOT booking today</p>
+      {/* Booking expanded */}
+      {bookingChoice === 'booking' && (
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => { setShowBooking(true); setBookingType('recurring') }}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Open Booking Form ✓
+          </button>
+          {activeOffer === 'pkg3' && (
+            <button
+              onClick={() => { setShowBooking(true); setBookingType('3pack') }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              3 Clean Package Selected
+            </button>
+          )}
         </div>
-        <div className="px-4 py-3 space-y-2">
+      )}
+
+      {/* Not-booking expanded */}
+      {bookingChoice === 'not_booking' && !notified && (
+        <div className="space-y-3">
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="nonBooking"
-              checked={nonBooking === 'lost'}
-              onChange={() => setNonBooking('lost')}
-              className="mt-0.5 accent-red-500"
-            />
-            <span className="text-sm text-slate-700">Client explicitly said not interested / not eligible</span>
+            <input type="radio" name="nonBooking" checked={nonBooking === 'lost'} onChange={() => setNonBooking('lost')} className="mt-0.5 accent-red-500" />
+            <span className="text-sm text-slate-700">Client explicitly said not interested or not eligible</span>
           </label>
           {nonBooking === 'lost' && (
             <div className="ml-6 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
@@ -1310,22 +1362,32 @@ function QuoteSummarySection({
             </div>
           )}
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="nonBooking"
-              checked={nonBooking === 'undecided'}
-              onChange={() => setNonBooking('undecided')}
-              className="mt-0.5 accent-amber-500"
-            />
-            <span className="text-sm text-slate-700">Client is undecided / still a possibility</span>
+            <input type="radio" name="nonBooking" checked={nonBooking === 'undecided'} onChange={() => setNonBooking('undecided')} className="mt-0.5 accent-amber-500" />
+            <span className="text-sm text-slate-700">Client is undecided — still a possibility</span>
           </label>
           {nonBooking === 'undecided' && (
             <div className="ml-6 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
               📋 Move this client to <strong>Pending Recurring</strong> stage in GHL. Follow up on the next scheduled touch.
             </div>
           )}
+          {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+          <button
+            onClick={handleNotBookingSubmit}
+            disabled={sending || !nonBooking}
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            {sending ? 'Sending…' : 'Confirm & Notify Team'}
+          </button>
         </div>
-      </div>
+      )}
+      {bookingChoice === 'not_booking' && notified && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-green-800">Team notified on Slack.</p>
+          <button onClick={onReset} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Start New Call
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1344,6 +1406,7 @@ export default function NDFUTool() {
   const [toast, setToast]             = useState(null)
 
   const [callMode, setCallMode]                 = useState(null)
+  const [bookingChoice, setBookingChoice]       = useState(null)
   const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
   const [showBooking, setShowBooking]           = useState(false)
   const [bookingType, setBookingType]           = useState(null)
@@ -1367,6 +1430,7 @@ export default function NDFUTool() {
     setAddonChoice(ADDON_OPTIONS[0])
     setCallNotes('')
     setCallMode(null)
+    setBookingChoice(null)
     setQuoteServiceType('whole_home')
     setShowBooking(false)
     setBookingType(null)
@@ -1455,6 +1519,11 @@ export default function NDFUTool() {
                 addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
                 setBookingType={setBookingType}
+                bookingChoice={bookingChoice}
+                setBookingChoice={setBookingChoice}
+                callNotes={callNotes}
+                userName={firstName}
+                onReset={handleStartOver}
               />
 
               {showBooking && (
