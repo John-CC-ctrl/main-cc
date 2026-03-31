@@ -680,6 +680,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [submitting, setSubmitting]   = useState(false)
   const [errors, setErrors]           = useState({})
   const [submitError, setSubmitError] = useState(null)
+  const [l27Copied, setL27Copied]     = useState(false)
 
   const offerName = activeOffer ? OFFER_NAMES[activeOffer] : null
 
@@ -729,39 +730,139 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   }
 
   if (submitted) {
-    const displayPrice   = bookingType === 'recurring' ? price : pkg3Price
-    const displayService = bookingType === 'recurring' ? serviceType : 'Standard Clean × 3'
-    const displayFreq    = bookingType === 'recurring' ? frequency : '3 cleans'
+    const daysDisplay    = (noPreference || days.length === 0) ? 'No preference / Did not specify' : days.join(', ')
+    const timeDisplay    = time === 'Other' ? (timeOther.trim() || 'Other (not specified)') : (time || 'Not specified')
+    const cleanerDisplay = cleaner.trim() || 'Client did not specify'
+    const instrDisplay   = instructions.trim() || 'None'
+    const offerDisplay   = activeOffer ? OFFER_NAMES[activeOffer] : 'None'
+    const callLinkDisplay = callRecLink.trim() || 'Not provided'
+
+    const l27Text = [
+      'RECURRING CLIENT SETUP',
+      '',
+      `Preferred Cleaner(s): ${cleanerDisplay}`,
+      `Preferred Days: ${daysDisplay}`,
+      `Preferred Time: ${timeDisplay}`,
+      `Special Instructions: ${instrDisplay}`,
+      '',
+      'PRICE QUOTE ON FILE:',
+      `Service: ${serviceType}`,
+      ...(pricing ? [
+        `Non-recurring rate: $${pricing.stdLo} – $${pricing.stdHi}`,
+        `Weekly: $${pricing.weeklyPx}/visit${frequency === 'Weekly' ? ' *' : ''}`,
+        `Bi-Weekly: $${pricing.biweeklyPx}/visit${frequency === 'Bi-Weekly' ? ' *' : ''}`,
+        `Monthly: $${pricing.monthlyPx}/visit${frequency === 'Monthly' ? ' *' : ''}`,
+      ] : []),
+      '',
+      `Active offer at time of booking: ${offerDisplay}`,
+      `Call recording: ${callLinkDisplay}`,
+    ].join('\n')
+
     return (
       <div className="bg-green-50 border border-green-200 rounded-2xl p-6 space-y-5">
-        <div className="flex flex-col items-center text-center space-y-3 py-4">
-          <div className="text-5xl">✅</div>
-          <h3 className="text-lg font-semibold text-green-800">Booking confirmed! Team has been notified on Slack.</h3>
+        {/* Header */}
+        <div className="flex flex-col items-center text-center space-y-2 py-2">
+          <div className="text-4xl">✅</div>
+          <h3 className="text-lg font-semibold text-green-800">Booking confirmed! Team has been notified in #ndfu on Slack.</h3>
         </div>
+
+        {/* Summary */}
         <div className="bg-white border border-green-200 rounded-xl divide-y divide-slate-100 text-sm">
           <div className="flex justify-between px-4 py-3">
             <span className="text-slate-500">Client</span>
             <span className="font-medium text-slate-800">{first} {last}</span>
           </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Service</span>
-            <span className="font-medium text-slate-800">{displayService}</span>
-          </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Frequency</span>
-            <span className="font-medium text-slate-800">{displayFreq}</span>
-          </div>
-          <div className="flex justify-between px-4 py-3">
-            <span className="text-slate-500">Price</span>
-            <span className="font-medium text-slate-800">${displayPrice} per visit</span>
-          </div>
-          {activeOffer && (
+          {email && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Email</span>
+            <span className="font-medium text-slate-800">{email}</span>
+          </div>}
+          {phone && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Phone</span>
+            <span className="font-medium text-slate-800">{phone}</span>
+          </div>}
+          {bookingType === 'recurring' && <>
             <div className="flex justify-between px-4 py-3">
-              <span className="text-slate-500">Offer applied</span>
-              <span className="font-medium text-slate-800">{OFFER_NAMES[activeOffer]}</span>
+              <span className="text-slate-500">Service</span>
+              <span className="font-medium text-slate-800">{serviceType}</span>
             </div>
-          )}
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Frequency</span>
+              <span className="font-medium text-slate-800">{frequency}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Price per visit</span>
+              <span className="font-semibold text-slate-900">${price}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred days</span>
+              <span className="font-medium text-slate-800">{daysDisplay}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred time</span>
+              <span className="font-medium text-slate-800">{timeDisplay}</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Preferred cleaner</span>
+              <span className="font-medium text-slate-800">{cleanerDisplay}</span>
+            </div>
+            {instrDisplay !== 'None' && <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Special instructions</span>
+              <span className="font-medium text-slate-800 text-right max-w-xs">{instrDisplay}</span>
+            </div>}
+          </>}
+          {bookingType === '3pack' && <>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Service</span>
+              <span className="font-medium text-slate-800">Standard Clean × 3</span>
+            </div>
+            <div className="flex justify-between px-4 py-3">
+              <span className="text-slate-500">Price per clean</span>
+              <span className="font-semibold text-slate-900">${pkg3Price}</span>
+            </div>
+          </>}
+          {activeOffer && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Offer applied</span>
+            <span className="font-medium text-slate-800">{OFFER_NAMES[activeOffer]}</span>
+          </div>}
+          {callLinkDisplay !== 'Not provided' && <div className="flex justify-between px-4 py-3">
+            <span className="text-slate-500">Call recording</span>
+            <span className="font-medium text-slate-800 truncate max-w-xs">{callLinkDisplay}</span>
+          </div>}
         </div>
+
+        {/* L27 Notes — recurring only */}
+        {bookingType === 'recurring' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-700">Launch27 Customer Profile Notes</h4>
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(l27Text).catch(() => {})
+                  setL27Copied(true)
+                  setTimeout(() => setL27Copied(false), 2000)
+                }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+              >
+                {l27Copied ? '✓ Copied!' : 'Copy L27 Notes'}
+              </button>
+            </div>
+            <pre className="bg-slate-800 text-green-300 text-xs rounded-xl p-4 whitespace-pre-wrap font-mono leading-relaxed overflow-auto max-h-72">
+{l27Text}
+            </pre>
+          </div>
+        )}
+
+        {/* Next Steps */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 leading-relaxed">
+          📋 <strong>After this call:</strong>
+          <ul className="mt-2 space-y-1 list-disc list-inside">
+            <li>Paste the notes above into the client's profile on Launch27</li>
+            <li>Confirm recurring appointments are set up and double-checked in L27</li>
+            <li>Acknowledge the team and update performance metrics</li>
+          </ul>
+        </div>
+
+        {/* Action buttons */}
         <div className="flex gap-3">
           <button onClick={onReset} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
             Start New Call
@@ -1093,6 +1194,8 @@ function QuoteSummarySection({
 
   const pkg3PerClean = pricing ? pricing.stdLo - 25 : null
 
+  const [nonBooking, setNonBooking] = useState(null) // null | 'lost' | 'undecided'
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -1216,6 +1319,45 @@ function QuoteSummarySection({
             3 Clean Package Selected
           </button>
         )}
+      </div>
+
+      {/* Non-booking journey */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <p className="text-sm font-semibold text-slate-600">Client is NOT booking today</p>
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="nonBooking"
+              checked={nonBooking === 'lost'}
+              onChange={() => setNonBooking('lost')}
+              className="mt-0.5 accent-red-500"
+            />
+            <span className="text-sm text-slate-700">Client explicitly said not interested / not eligible</span>
+          </label>
+          {nonBooking === 'lost' && (
+            <div className="ml-6 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
+              📋 Mark this client as <strong>Lost</strong> in GHL. No further follow-up needed.
+            </div>
+          )}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="radio"
+              name="nonBooking"
+              checked={nonBooking === 'undecided'}
+              onChange={() => setNonBooking('undecided')}
+              className="mt-0.5 accent-amber-500"
+            />
+            <span className="text-sm text-slate-700">Client is undecided / still a possibility</span>
+          </label>
+          {nonBooking === 'undecided' && (
+            <div className="ml-6 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+              📋 Move this client to <strong>Pending Recurring</strong> stage in GHL. Follow up on the next scheduled touch.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
