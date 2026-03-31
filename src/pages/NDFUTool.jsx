@@ -240,6 +240,10 @@ function OffersSection({ activeOffer, setActiveOffer, addonChoice, setAddonChoic
         One-Click Offers — <span className="font-normal text-slate-500">Same-Call Booking Tools</span>
       </h2>
 
+      <p className="text-sm italic text-slate-500 leading-relaxed">
+        💡 Use these offers when the client is on the fence. Try: "I can tell this is something that would genuinely make your life easier — what if I threw in a little something to get you started on a schedule with us?"
+      </p>
+
       <OfferCard id="savings100" title="$100 Recurring Sign-Up Savings" subtitle="Spread across your first five recurring visits." activeOffer={activeOffer} setActiveOffer={setActiveOffer}>
         <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
           <li>$25 off your 2nd recurring visit</li>
@@ -408,6 +412,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
 
         {phase === 'negative' && (
           <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-red-600 font-medium">✗ Negative feedback</p>
+              <button onClick={() => setPhase('opening')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
             <ScriptBlock
               text={`"I'm really sorry to hear that — your satisfaction is our top priority. Let me get all the details so we can address this properly for you."`}
               subs={subs}
@@ -429,7 +437,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
               text={`"That's wonderful to hear! What would you say was the best part of the service?"`}
               subs={subs}
             />
-            <p className="text-xs text-green-600 font-medium">✓ Positive — pitch card opened below</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Positive — pitch card opened below</p>
+              <button onClick={() => { setPhase('opening'); setOpen((o) => ({ ...o, pitch: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           </div>
         )}
       </CollapsibleCard>
@@ -476,7 +487,22 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
             </div>
           )}
           {phase === 'interested' && (
-            <p className="text-xs text-green-600 font-medium">✓ Client interested in recurring — proceed with booking</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Client interested in recurring — proceed with booking</p>
+              <button onClick={() => setPhase('positive')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'objection' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-yellow-600 font-medium">↓ Price objection — PAC downsell opened below</p>
+              <button onClick={() => { setPhase('positive'); setOpen((o) => ({ ...o, objection: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'not_interested' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-500 font-medium">✗ Not interested in recurring</p>
+              <button onClick={() => { setPhase('positive'); setOpen((o) => ({ ...o, review: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           )}
         </CollapsibleCard>
       )}
@@ -515,7 +541,16 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
             </div>
           )}
           {phase === 'pac_interested' && (
-            <p className="text-xs text-green-600 font-medium">✓ Client interested in PAC — proceed with booking</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-green-600 font-medium">✓ Client interested in PAC — proceed with booking</p>
+              <button onClick={() => setPhase('objection')} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
+          )}
+          {phase === 'still_not_interested' && (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-slate-500 font-medium">✗ Still not interested</p>
+              <button onClick={() => { setPhase('objection'); setOpen((o) => ({ ...o, review: false })) }} className="text-blue-500 hover:underline text-xs">← Back</button>
+            </div>
           )}
         </CollapsibleCard>
       )}
@@ -524,7 +559,7 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
       {(phase === 'not_interested' || phase === 'still_not_interested') && (
         <CollapsibleCard title="Review Ask" open={open.review} onToggle={() => toggle('review')}>
           <ScriptBlock
-            text={`"I completely understand. By the way, if you have a moment, we'd love a review — your cleaner actually gets a tip in your name at no cost to you. Can I send you a text link?"`}
+            text={`"I completely understand — we'd love to help you out on an as-needed basis whenever you need us. By the way, since everything went so well on your first appointment, would it be okay if we asked for a quick review? Your cleaner actually gets a tip in your name for having one posted — it's a great mark of their performance and means a lot to the team. Can I send you a text link real quick?"`}
             subs={subs}
           />
           <FlowBtn color="blue" onClick={copyReviewLink}>Copy Review Link</FlowBtn>
