@@ -684,6 +684,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     setSubmitting(true)
     setSubmitError(null)
     const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nFirst Recurring Service Date: ${firstServiceDate || 'Not specified'}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}\n\nCall Notes:\n${callNotes || '(none)'}`
+    console.log('Slack webhook URL:', import.meta.env.VITE_SLACK_WEBHOOK_URL)
     const response = await fetch(import.meta.env.VITE_SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -700,6 +701,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     setSubmitting(true)
     setSubmitError(null)
     const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.\n\nCall Notes:\n${callNotes || '(none)'}`
+    console.log('Slack webhook URL:', import.meta.env.VITE_SLACK_WEBHOOK_URL)
     const response = await fetch(import.meta.env.VITE_SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1201,6 +1203,7 @@ function QuoteSummarySection({
     setSending(true); setSendError(null)
     const statusLabel = nonBooking === 'lost' ? 'Not Interested / Not Eligible' : 'Undecided — Follow Up'
     const message = `📋 NDFU Update — Client Not Booking Today\n\nStatus: ${statusLabel}\nBooked by: ${userName}\n\nCall Notes:\n${callNotes || '(none)'}`
+    console.log('Slack webhook URL:', import.meta.env.VITE_SLACK_WEBHOOK_URL)
     const response = await fetch(import.meta.env.VITE_SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
