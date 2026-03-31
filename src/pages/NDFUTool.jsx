@@ -135,9 +135,6 @@ function PacToggle({ label, selected, onClick }) {
 function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel, setPacSel }) {
   const pac = pricing?.pac[pacSel]
 
-  const whPx  = pricing ? { weekly: pricing.weeklyPx, biweekly: pricing.biweeklyPx, monthly: pricing.monthlyPx }[recurSel] : null
-  const showPac = whPx != null && ['A', 'B', 'C'].every((o) => pricing.pac[o][recurSel] < whPx)
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <h2 className="text-base font-semibold text-slate-700">Property &amp; Pricing</h2>
@@ -175,28 +172,28 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
             </div>
           </div>
 
-          {showPac && (
           <div>
-            <div className="text-sm font-medium text-slate-600 mb-2">Priority Area Clean (PAC)</div>
-            <div className="flex gap-2 mb-4">
+            <div className="text-sm font-medium text-slate-600 mb-1">Priority Area Clean — Downsell Option</div>
+            <p className="text-xs text-slate-400 italic mb-3">If the whole home rate feels too high, offer a focused clean of high-traffic areas at fewer labor hours.</p>
+            <div className="flex gap-2 mb-3">
               {['A', 'B', 'C'].map((opt) => (
                 <PacToggle key={opt} label={`Option ${opt} — ${pricing.pac[opt].hrs} hrs`} selected={pacSel === opt} onClick={() => setPacSel(opt)} />
               ))}
             </div>
-            {pac && (
-              <div className="flex gap-3">
-                <RecurringCard label="Weekly"    price={pac.weekly}   selected={false} onClick={() => {}} />
-                <RecurringCard label="Bi-Weekly" price={pac.biweekly} selected={false} onClick={() => {}} />
-                <RecurringCard label="Monthly"   price={pac.monthly}  selected={false} onClick={() => {}} />
-                <div className="flex-1 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-center">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">One-Time</div>
-                  <div className="text-2xl font-bold text-slate-700">{fmt(pac.price)}</div>
-                  <div className="text-xs mt-0.5 text-slate-400">{pac.hrs} hrs</div>
-                </div>
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-3">
+              {['A', 'B', 'C'].map((opt) => {
+                const p = pricing.pac[opt]
+                return (
+                  <div key={opt} className={`rounded-xl border-2 px-3 py-3 text-center ${pacSel === opt ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+                    <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Option {opt}</div>
+                    <div className="text-xs text-slate-400 mb-1">{p.hrs} hrs</div>
+                    <div className="text-xl font-bold text-slate-800">{fmt(p.price)}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">one-time</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          )}
         </>
       )}
     </div>
@@ -306,7 +303,7 @@ function VoicemailCard({ vmKey, vm, subs, copySms }) {
 
 // ─── Section 3 — Call Script ─────────────────────────────────
 
-function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
+function ScriptSection({ pricing, pacSel, firstName, toast, showToast, callMode }) {
   // Phase controls which parts of the script are revealed
   const [phase, setPhase] = useState('opening')
   // 'opening' | 'negative' | 'positive' | 'objection' | 'not_interested' | 'pac_interested'
@@ -337,7 +334,10 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
     setOpen((p) => ({ ...p, pitch: true }))
   }
   const handleNegative = () => setPhase('negative')
-  const handleInterested = () => setPhase('interested')
+  const handleInterested = () => {
+    setPhase('interested')
+    document.getElementById('quote-summary')?.scrollIntoView({ behavior: 'smooth' })
+  }
   const handlePriceObjection = () => {
     setPhase('objection')
     setOpen((p) => ({ ...p, objection: true }))
@@ -363,39 +363,9 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
     showToast('SMS template copied!')
   }
 
-  const [callMode, setCallMode] = useState(null) // null | 'live' | 'voicemail'
-  const handleUndo = () => {
-    setCallMode(null)
-    setPhase('opening')
-    setOpen((o) => ({ ...o, pitch: false, objection: false, review: false }))
-  }
-
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700 px-1">Call Script</h2>
-
-      {/* ── Pickup / Voicemail toggle ── */}
-      {callMode === null ? (
-        <div className="flex gap-3">
-          <button
-            onClick={() => setCallMode('live')}
-            className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
-          >
-            📞 Client Picked Up
-          </button>
-          <button
-            onClick={() => setCallMode('voicemail')}
-            className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
-          >
-            📵 Went to Voicemail
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
-          <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
-          <button onClick={handleUndo} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
-        </div>
-      )}
 
       {/* ── Live call script ── */}
       {callMode === 'live' && (
@@ -638,7 +608,7 @@ function SelectInput({ value, onChange, options }) {
   )
 }
 
-function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking, userName, onReset }) {
+function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking, userName, callNotes, onReset }) {
   // Derive initial price
   const initRecurPrice = () => {
     if (!pricing) return ''
@@ -661,6 +631,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [price, setPrice]           = useState(initRecurPrice)
   const [days, setDays]             = useState([])
   const [noPreference, setNoPreference] = useState(false)
+  const [firstServiceDate, setFirstServiceDate] = useState('')
   const [time, setTime]             = useState('')
   const [timeOther, setTimeOther]   = useState('')
   const [cleaner, setCleaner]       = useState('')
@@ -686,12 +657,13 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
   const validate = () => {
     const e = {}
-    if (!first.trim())  e.first     = 'This field is required'
-    if (!last.trim())   e.last      = 'This field is required'
-    if (!email.trim())  e.email     = 'This field is required'
-    if (!phone.trim())  e.phone     = 'This field is required'
-    if (!frequency)     e.frequency = 'This field is required'
-    if (!price)         e.price     = 'This field is required'
+    if (!first.trim())       e.first            = 'This field is required'
+    if (!last.trim())        e.last             = 'This field is required'
+    if (!email.trim())       e.email            = 'This field is required'
+    if (!phone.trim())       e.phone            = 'This field is required'
+    if (!frequency)          e.frequency        = 'This field is required'
+    if (!price)              e.price            = 'This field is required'
+    if (!firstServiceDate)   e.firstServiceDate = 'This field is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -711,7 +683,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     if (!validate()) return
     setSubmitting(true)
     setSubmitError(null)
-    const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}`
+    const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nFirst Recurring Service Date: ${firstServiceDate || 'Not specified'}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}\n\nCall Notes:\n${callNotes || '(none)'}`
     const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
     setSubmitting(false)
     if (error) { setSubmitError('Something went wrong. Please try again.') }
@@ -722,7 +694,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     if (!validate3Pack()) return
     setSubmitting(true)
     setSubmitError(null)
-    const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.`
+    const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.\n\nCall Notes:\n${callNotes || '(none)'}`
     const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
     setSubmitting(false)
     if (error) { setSubmitError('Something went wrong. Please try again.') }
@@ -744,6 +716,8 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
       `Preferred Days: ${daysDisplay}`,
       `Preferred Time: ${timeDisplay}`,
       `Special Instructions: ${instrDisplay}`,
+      '',
+      `First Recurring Service Date: ${firstServiceDate || 'Not specified'}`,
       '',
       'PRICE QUOTE ON FILE:',
       `Service: ${serviceType}`,
@@ -953,6 +927,18 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               <TextInput type="number" value={price} onChange={setPrice} placeholder="0" error={!!errors.price} />
               {errors.price && <p className="text-xs text-red-500 mt-0.5">{errors.price}</p>}
             </div>
+          </div>
+
+          {/* First Recurring Service Date */}
+          <div>
+            <FieldLabel>First Recurring Service Date *</FieldLabel>
+            <input
+              type="date"
+              value={firstServiceDate}
+              onChange={(e) => setFirstServiceDate(e.target.value)}
+              className={`w-full border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 ${errors.firstServiceDate ? 'border-red-400' : 'border-slate-300'}`}
+            />
+            {errors.firstServiceDate && <p className="text-xs text-red-500 mt-0.5">{errors.firstServiceDate}</p>}
           </div>
 
           {/* Preferred days */}
@@ -1168,6 +1154,7 @@ function QuoteSummarySection({
   pricing, recurSel, pacSel,
   quoteServiceType, setQuoteServiceType,
   activeOffer, addonChoice, setShowBooking, setBookingType,
+  bookingChoice, setBookingChoice, callNotes, userName, onReset,
 }) {
   const whPriceMap = {
     weekly:   pricing?.weeklyPx,
@@ -1195,9 +1182,23 @@ function QuoteSummarySection({
   const pkg3PerClean = pricing ? pricing.stdLo - 25 : null
 
   const [nonBooking, setNonBooking] = useState(null) // null | 'lost' | 'undecided'
+  const [notified, setNotified]     = useState(false)
+  const [sending, setSending]       = useState(false)
+  const [sendError, setSendError]   = useState(null)
+
+  const handleNotBookingSubmit = async () => {
+    if (!nonBooking) return
+    setSending(true); setSendError(null)
+    const statusLabel = nonBooking === 'lost' ? 'Not Interested / Not Eligible' : 'Undecided — Follow Up'
+    const message = `📋 NDFU Update — Client Not Booking Today\n\nStatus: ${statusLabel}\nBooked by: ${userName}\n\nCall Notes:\n${callNotes || '(none)'}`
+    const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
+    setSending(false)
+    if (error) setSendError('Something went wrong. Please try again.')
+    else        setNotified(true)
+  }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+    <div id="quote-summary" className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-slate-700">Quote Summary</h2>
         {/* Service type toggle */}
@@ -1303,39 +1304,57 @@ function QuoteSummarySection({
         )}
       </div>
 
-      {/* Booking buttons */}
-      <div className="flex gap-3 flex-wrap">
+      {/* Choice buttons */}
+      <div className="grid grid-cols-2 gap-3">
         <button
-          onClick={() => { setShowBooking(true); setBookingType('recurring') }}
-          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+          onClick={() => {
+            const next = bookingChoice === 'booking' ? null : 'booking'
+            setBookingChoice(next)
+            if (next !== 'booking') setShowBooking(false)
+            setNonBooking(null); setNotified(false)
+          }}
+          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-colors ${bookingChoice === 'booking' ? 'bg-navy text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
         >
-          Client is Booking Recurring ✓
+          ✓ Client is Booking Recurring
         </button>
-        {activeOffer === 'pkg3' && (
-          <button
-            onClick={() => { setShowBooking(true); setBookingType('3pack') }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            3 Clean Package Selected
-          </button>
-        )}
+        <button
+          onClick={() => {
+            const next = bookingChoice === 'not_booking' ? null : 'not_booking'
+            setBookingChoice(next)
+            if (next !== 'not_booking') setShowBooking(false)
+          }}
+          className={`py-3 px-4 rounded-xl font-semibold text-sm transition-colors ${bookingChoice === 'not_booking' ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+        >
+          ✗ Not Booking Today
+        </button>
       </div>
 
-      {/* Non-booking journey */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-          <p className="text-sm font-semibold text-slate-600">Client is NOT booking today</p>
+      {/* Booking expanded */}
+      {bookingChoice === 'booking' && (
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => { setShowBooking(true); setBookingType('recurring') }}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            Open Booking Form ✓
+          </button>
+          {activeOffer === 'pkg3' && (
+            <button
+              onClick={() => { setShowBooking(true); setBookingType('3pack') }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              3 Clean Package Selected
+            </button>
+          )}
         </div>
-        <div className="px-4 py-3 space-y-2">
+      )}
+
+      {/* Not-booking expanded */}
+      {bookingChoice === 'not_booking' && !notified && (
+        <div className="space-y-3">
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="nonBooking"
-              checked={nonBooking === 'lost'}
-              onChange={() => setNonBooking('lost')}
-              className="mt-0.5 accent-red-500"
-            />
-            <span className="text-sm text-slate-700">Client explicitly said not interested / not eligible</span>
+            <input type="radio" name="nonBooking" checked={nonBooking === 'lost'} onChange={() => setNonBooking('lost')} className="mt-0.5 accent-red-500" />
+            <span className="text-sm text-slate-700">Client explicitly said not interested or not eligible</span>
           </label>
           {nonBooking === 'lost' && (
             <div className="ml-6 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700">
@@ -1343,22 +1362,32 @@ function QuoteSummarySection({
             </div>
           )}
           <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="radio"
-              name="nonBooking"
-              checked={nonBooking === 'undecided'}
-              onChange={() => setNonBooking('undecided')}
-              className="mt-0.5 accent-amber-500"
-            />
-            <span className="text-sm text-slate-700">Client is undecided / still a possibility</span>
+            <input type="radio" name="nonBooking" checked={nonBooking === 'undecided'} onChange={() => setNonBooking('undecided')} className="mt-0.5 accent-amber-500" />
+            <span className="text-sm text-slate-700">Client is undecided — still a possibility</span>
           </label>
           {nonBooking === 'undecided' && (
             <div className="ml-6 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
               📋 Move this client to <strong>Pending Recurring</strong> stage in GHL. Follow up on the next scheduled touch.
             </div>
           )}
+          {sendError && <p className="text-xs text-red-500">{sendError}</p>}
+          <button
+            onClick={handleNotBookingSubmit}
+            disabled={sending || !nonBooking}
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+          >
+            {sending ? 'Sending…' : 'Confirm & Notify Team'}
+          </button>
         </div>
-      </div>
+      )}
+      {bookingChoice === 'not_booking' && notified && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-green-800">Team notified on Slack.</p>
+          <button onClick={onReset} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+            Start New Call
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1376,6 +1405,8 @@ export default function NDFUTool() {
   const [callNotes, setCallNotes]     = useState('')
   const [toast, setToast]             = useState(null)
 
+  const [callMode, setCallMode]                 = useState(null)
+  const [bookingChoice, setBookingChoice]       = useState(null)
   const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
   const [showBooking, setShowBooking]           = useState(false)
   const [bookingType, setBookingType]           = useState(null)
@@ -1398,6 +1429,8 @@ export default function NDFUTool() {
     setActiveOffer(null)
     setAddonChoice(ADDON_OPTIONS[0])
     setCallNotes('')
+    setCallMode(null)
+    setBookingChoice(null)
     setQuoteServiceType('whole_home')
     setShowBooking(false)
     setBookingType(null)
@@ -1447,6 +1480,29 @@ export default function NDFUTool() {
                 pacSel={pacSel}
                 setPacSel={setPacSel}
               />
+              {/* ── Pickup / Voicemail toggle ── */}
+              {pricing && (callMode === null ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCallMode('live')}
+                    className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
+                  >
+                    📞 Client Picked Up
+                  </button>
+                  <button
+                    onClick={() => setCallMode('voicemail')}
+                    className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
+                  >
+                    📵 Went to Voicemail
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                  <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
+                  <button onClick={() => setCallMode(null)} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
+                </div>
+              ))}
+
               <OffersSection
                 activeOffer={activeOffer}
                 setActiveOffer={setActiveOffer}
@@ -1463,6 +1519,11 @@ export default function NDFUTool() {
                 addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
                 setBookingType={setBookingType}
+                bookingChoice={bookingChoice}
+                setBookingChoice={setBookingChoice}
+                callNotes={callNotes}
+                userName={firstName}
+                onReset={handleStartOver}
               />
 
               {showBooking && (
@@ -1476,18 +1537,22 @@ export default function NDFUTool() {
                   addonChoice={addonChoice}
                   setShowBooking={setShowBooking}
                   userName={firstName}
+                  callNotes={callNotes}
                   onReset={handleStartOver}
                 />
               )}
 
-              <ScriptSection
-                key={scriptKey}
-                pricing={pricing}
-                pacSel={pacSel}
-                firstName={firstName}
-                toast={toast}
-                showToast={showToast}
-              />
+              {callMode !== null && (
+                <ScriptSection
+                  key={scriptKey}
+                  pricing={pricing}
+                  pacSel={pacSel}
+                  firstName={firstName}
+                  toast={toast}
+                  showToast={showToast}
+                  callMode={callMode}
+                />
+              )}
             </div>
 
             {/* Sticky notes sidebar — desktop only */}
