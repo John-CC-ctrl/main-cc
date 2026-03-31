@@ -270,6 +270,31 @@ function OffersSection({ activeOffer, setActiveOffer, addonChoice, setAddonChoic
   )
 }
 
+function VoicemailCard({ vmKey, vm, subs, copySms }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className={`border-2 rounded-xl overflow-hidden transition-colors ${expanded ? 'border-blue-400' : 'border-slate-200'}`}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left bg-white hover:bg-slate-50 transition-colors"
+      >
+        <span className="text-sm font-semibold text-slate-700">{vm.label}</span>
+        <span className="text-xs text-slate-400">{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 bg-white border-t border-slate-100">
+          <ScriptBlock text={vm.voice} subs={subs} />
+          <div className="bg-slate-50 rounded-lg px-4 py-3 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">SMS Template</div>
+            {vm.sms}
+          </div>
+          <FlowBtn color="slate" onClick={() => copySms(vm.sms)}>Copy SMS</FlowBtn>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Section 3 — Call Script ─────────────────────────────────
 
 function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
@@ -329,9 +354,43 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
     showToast('SMS template copied!')
   }
 
+  const [callMode, setCallMode] = useState(null) // null | 'live' | 'voicemail'
+  const handleUndo = () => {
+    setCallMode(null)
+    setPhase('opening')
+    setOpen((o) => ({ ...o, pitch: false, objection: false, review: false }))
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700 px-1">Call Script</h2>
+
+      {/* ── Pickup / Voicemail toggle ── */}
+      {callMode === null ? (
+        <div className="flex gap-3">
+          <button
+            onClick={() => setCallMode('live')}
+            className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
+          >
+            📞 Client Picked Up
+          </button>
+          <button
+            onClick={() => setCallMode('voicemail')}
+            className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
+          >
+            📵 Went to Voicemail
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
+          <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
+          <button onClick={handleUndo} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
+        </div>
+      )}
+
+      {/* ── Live call script ── */}
+      {callMode === 'live' && (
+        <div className="space-y-4">
 
       {/* ── Opening ── */}
       <CollapsibleCard title="Opening" open={open.opening} onToggle={() => toggle('opening')}>
@@ -472,22 +531,20 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
         </CollapsibleCard>
       )}
 
-      {/* ── Voicemail Scripts ── */}
-      <CollapsibleCard title="Voicemail Scripts" open={open.voicemail} onToggle={() => toggle('voicemail')}>
-        <div className="space-y-5">
-          {Object.entries(VM_SCRIPTS).map(([key, vm]) => (
-            <div key={key} className="border border-slate-200 rounded-xl p-4 space-y-3">
-              <h4 className="text-sm font-semibold text-slate-700">{vm.label}</h4>
-              <ScriptBlock text={vm.voice} subs={subs} />
-              <div className="bg-slate-50 rounded-lg px-4 py-3 text-xs text-slate-600 whitespace-pre-line leading-relaxed">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">SMS Template</div>
-                {vm.sms}
-              </div>
-              <FlowBtn color="slate" onClick={() => copySms(vm.sms)}>Copy SMS</FlowBtn>
-            </div>
-          ))}
         </div>
-      </CollapsibleCard>
+      )}
+
+      {/* ── Voicemail mode ── */}
+      {callMode === 'voicemail' && (
+        <div className="space-y-3">
+          {Object.entries(VM_SCRIPTS).map(([key, vm]) => (
+            <VoicemailCard key={key} vmKey={key} vm={vm} subs={subs} copySms={copySms} />
+          ))}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 leading-relaxed">
+            📋 <strong>Next step:</strong> Change this client to the appropriate next voicemail stage in GHL so they receive the automated follow-up texts. Make a note to follow up again tomorrow to ask for feedback.
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -995,6 +1052,7 @@ export default function NDFUTool() {
   const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
   const [showBooking, setShowBooking]           = useState(false)
   const [bookingType, setBookingType]           = useState(null)
+  const [notesDrawerOpen, setNotesDrawerOpen]   = useState(false)
 
   // Section 3 needs its own phase/open state — reset by remounting via key
   const [scriptKey, setScriptKey]     = useState(0)
@@ -1016,6 +1074,7 @@ export default function NDFUTool() {
     setQuoteServiceType('whole_home')
     setShowBooking(false)
     setBookingType(null)
+    setNotesDrawerOpen(false)
     setScriptKey((k) => k + 1)
   }
 
@@ -1033,6 +1092,11 @@ export default function NDFUTool() {
         )}
 
         <main className="flex-1 p-6 overflow-y-auto">
+          {/* ── Pep Talk Banner ── */}
+          <div className="border-l-4 border-navy bg-blue-50 px-5 py-3 rounded-r-xl mb-5 text-sm text-slate-700 leading-relaxed">
+            Every call you make today is an opportunity to genuinely help someone. First, make sure they're happy — that's always the priority. Then, if they loved the service, you're simply offering them the gift of consistency. You're not selling; you're serving. Come in with care, confidence, and the Cobalt standard.
+          </div>
+
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-slate-800">NDFU Sales Call Tool</h1>
             <button
@@ -1043,58 +1107,97 @@ export default function NDFUTool() {
             </button>
           </div>
 
-          <div className="space-y-6 max-w-3xl">
-            <PricingSection
-              pricing={pricing}
-              sqft={sqft}
-              setSqft={setSqft}
-              recurSel={recurSel}
-              setRecurSel={setRecurSel}
-              pacSel={pacSel}
-              setPacSel={setPacSel}
-            />
-            <OffersSection
-              activeOffer={activeOffer}
-              setActiveOffer={setActiveOffer}
-              addonChoice={addonChoice}
-              setAddonChoice={setAddonChoice}
-            />
-            <QuoteSummarySection
-              pricing={pricing}
-              recurSel={recurSel}
-              pacSel={pacSel}
-              quoteServiceType={quoteServiceType}
-              setQuoteServiceType={setQuoteServiceType}
-              activeOffer={activeOffer}
-              setShowBooking={setShowBooking}
-              setBookingType={setBookingType}
-            />
-
-            {showBooking && (
-              <BookingForm
-                bookingType={bookingType}
+          {/* ── Two-column layout: main content + sticky notes ── */}
+          <div className="flex gap-6 items-start">
+            {/* Main content column */}
+            <div className="flex-1 min-w-0 space-y-6">
+              <PricingSection
+                pricing={pricing}
+                sqft={sqft}
+                setSqft={setSqft}
+                recurSel={recurSel}
+                setRecurSel={setRecurSel}
+                pacSel={pacSel}
+                setPacSel={setPacSel}
+              />
+              <OffersSection
+                activeOffer={activeOffer}
+                setActiveOffer={setActiveOffer}
+                addonChoice={addonChoice}
+                setAddonChoice={setAddonChoice}
+              />
+              <QuoteSummarySection
                 pricing={pricing}
                 recurSel={recurSel}
                 pacSel={pacSel}
                 quoteServiceType={quoteServiceType}
+                setQuoteServiceType={setQuoteServiceType}
                 activeOffer={activeOffer}
-                addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
-                userName={firstName}
-                onReset={handleStartOver}
+                setBookingType={setBookingType}
               />
-            )}
 
-            <ScriptSection
-              key={scriptKey}
-              pricing={pricing}
-              pacSel={pacSel}
-              firstName={firstName}
-              toast={toast}
-              showToast={showToast}
-            />
-            <NotesSection notes={callNotes} setNotes={setCallNotes} />
+              {showBooking && (
+                <BookingForm
+                  bookingType={bookingType}
+                  pricing={pricing}
+                  recurSel={recurSel}
+                  pacSel={pacSel}
+                  quoteServiceType={quoteServiceType}
+                  activeOffer={activeOffer}
+                  addonChoice={addonChoice}
+                  setShowBooking={setShowBooking}
+                  userName={firstName}
+                  onReset={handleStartOver}
+                />
+              )}
+
+              <ScriptSection
+                key={scriptKey}
+                pricing={pricing}
+                pacSel={pacSel}
+                firstName={firstName}
+                toast={toast}
+                showToast={showToast}
+              />
+            </div>
+
+            {/* Sticky notes sidebar — desktop only */}
+            <div className="hidden lg:block w-72 shrink-0 sticky top-6 self-start">
+              <NotesSection notes={callNotes} setNotes={setCallNotes} />
+            </div>
           </div>
+
+          {/* Mobile notes bottom drawer */}
+          <div
+            className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-2xl transition-transform duration-300 ${notesDrawerOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          >
+            <div className="p-4 space-y-3 max-h-72 flex flex-col">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-700">Call Notes</h3>
+                <button
+                  onClick={() => setNotesDrawerOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                >✕</button>
+              </div>
+              <textarea
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                rows={5}
+                placeholder="Type notes here as the call progresses — client preferences, feedback, objections, special instructions, pricing discussed..."
+                className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Mobile notes toggle button */}
+          <button
+            className="lg:hidden fixed bottom-5 right-5 z-50 bg-navy text-white w-12 h-12 rounded-full shadow-lg text-xl flex items-center justify-center"
+            onClick={() => setNotesDrawerOpen((v) => !v)}
+            aria-label="Toggle call notes"
+          >
+            📝
+          </button>
         </main>
       </div>
     </div>
