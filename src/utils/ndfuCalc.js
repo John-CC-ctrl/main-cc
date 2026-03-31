@@ -39,18 +39,18 @@ export function calcNDFU(sqft) {
     weeklyPx   = roundToAttractive(biweeklyPx - 18)
   }
 
-  // Priority Area Clean options
-  const pacDefaultHrs = Math.max(2, stdHrsLo - 1)
-  const pacHrsA = Math.max(2, pacDefaultHrs - 0.5)
-  const pacHrsB = pacDefaultHrs
-  const pacHrsC = Math.min(stdHrsLo - 0.5, pacDefaultHrs + 0.5)
+  // Priority Area Clean — count down from (stdHrsLo − 0.5) in 0.5 hr steps, min 2 hrs, cap 3
+  const pacMaxHrs = stdHrsLo - 0.5
+  const pacHrsList = []
+  for (let h = pacMaxHrs; h >= 2 && pacHrsList.length < 3; h -= 0.5) {
+    pacHrsList.push(h)
+  }
 
   const buildPac = (hrs) => {
-    const price    = roundToAttractive(hrs * PAC_RATE)
-    const monthly  = price - 2
-    const biweekly = monthly - 3
-    const weekly   = biweekly - 5
-    return { hrs, price, monthly, biweekly, weekly }
+    const weekly   = roundToAttractive(hrs * PAC_RATE)
+    const biweekly = roundToAttractive(weekly + 12)
+    const monthly  = roundToAttractive(biweekly + 12)
+    return { hrs, weekly, biweekly, monthly }
   }
 
   return {
@@ -58,10 +58,6 @@ export function calcNDFU(sqft) {
     stdHrsLo, stdHrsHi,
     stdLo, stdHi,
     weeklyPx, biweeklyPx, monthlyPx,
-    pac: {
-      A: buildPac(pacHrsA),
-      B: buildPac(pacHrsB),
-      C: buildPac(pacHrsC),
-    },
+    pac: pacHrsList.map(buildPac),
   }
 }
