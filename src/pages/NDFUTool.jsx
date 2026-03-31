@@ -608,7 +608,7 @@ function SelectInput({ value, onChange, options }) {
   )
 }
 
-function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking, userName, onReset }) {
+function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType, activeOffer, addonChoice, setShowBooking, userName, callNotes, onReset }) {
   // Derive initial price
   const initRecurPrice = () => {
     if (!pricing) return ''
@@ -683,7 +683,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     if (!validate()) return
     setSubmitting(true)
     setSubmitError(null)
-    const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}`
+    const message = `🎉 New Recurring Client Booked!\n\nClient: ${first} ${last}\nService: ${serviceType}\nFrequency: ${frequency}\nPrice per visit: $${price}\nFirst Recurring Service Date: ${firstServiceDate || 'Not specified'}\nBooked by: ${userName}\nActive offer: ${offerName || 'None'}\n\nCall Notes:\n${callNotes || '(none)'}`
     const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
     setSubmitting(false)
     if (error) { setSubmitError('Something went wrong. Please try again.') }
@@ -694,7 +694,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
     if (!validate3Pack()) return
     setSubmitting(true)
     setSubmitError(null)
-    const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.`
+    const message = `📅 3 Clean Package Booked!\n\nClient: ${first} ${last}\nService: Standard Clean × 3\nPrice per clean: $${pkg3Price} (−$25 each)\nBooked by: ${userName}\nNote: Not recurring. Follow up after 3rd clean.\n\nCall Notes:\n${callNotes || '(none)'}`
     const { error } = await supabase.functions.invoke('notify-slack', { body: { message } })
     setSubmitting(false)
     if (error) { setSubmitError('Something went wrong. Please try again.') }
@@ -1537,6 +1537,7 @@ export default function NDFUTool() {
                   addonChoice={addonChoice}
                   setShowBooking={setShowBooking}
                   userName={firstName}
+                  callNotes={callNotes}
                   onReset={handleStartOver}
                 />
               )}
