@@ -1503,6 +1503,18 @@ export default function NDFUTool() {
                 </div>
               ))}
 
+              {callMode !== null && (
+                <ScriptSection
+                  key={scriptKey}
+                  pricing={pricing}
+                  pacSel={pacSel}
+                  firstName={firstName}
+                  toast={toast}
+                  showToast={showToast}
+                  callMode={callMode}
+                />
+              )}
+
               <OffersSection
                 activeOffer={activeOffer}
                 setActiveOffer={setActiveOffer}
@@ -1539,18 +1551,6 @@ export default function NDFUTool() {
                   userName={firstName}
                   callNotes={callNotes}
                   onReset={handleStartOver}
-                />
-              )}
-
-              {callMode !== null && (
-                <ScriptSection
-                  key={scriptKey}
-                  pricing={pricing}
-                  pacSel={pacSel}
-                  firstName={firstName}
-                  toast={toast}
-                  showToast={showToast}
-                  callMode={callMode}
                 />
               )}
             </div>
