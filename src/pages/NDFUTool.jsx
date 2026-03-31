@@ -135,6 +135,9 @@ function PacToggle({ label, selected, onClick }) {
 function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel, setPacSel }) {
   const pac = pricing?.pac[pacSel]
 
+  const whPx  = pricing ? { weekly: pricing.weeklyPx, biweekly: pricing.biweeklyPx, monthly: pricing.monthlyPx }[recurSel] : null
+  const showPac = whPx != null && ['A', 'B', 'C'].every((o) => pricing.pac[o][recurSel] < whPx)
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <h2 className="text-base font-semibold text-slate-700">Property &amp; Pricing</h2>
@@ -172,6 +175,7 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
             </div>
           </div>
 
+          {showPac && (
           <div>
             <div className="text-sm font-medium text-slate-600 mb-2">Priority Area Clean (PAC)</div>
             <div className="flex gap-2 mb-4">
@@ -192,6 +196,7 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
               </div>
             )}
           </div>
+          )}
         </>
       )}
     </div>
@@ -970,7 +975,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 function QuoteSummarySection({
   pricing, recurSel, pacSel,
   quoteServiceType, setQuoteServiceType,
-  activeOffer, setShowBooking, setBookingType,
+  activeOffer, addonChoice, setShowBooking, setBookingType,
 }) {
   const whPriceMap = {
     weekly:   pricing?.weeklyPx,
@@ -994,6 +999,8 @@ function QuoteSummarySection({
     : quoteServiceType === 'pac'
       ? pacPriceMap[recurSel]
       : whPriceMap[recurSel]
+
+  const pkg3PerClean = pricing ? pricing.stdLo - 25 : null
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
@@ -1040,6 +1047,58 @@ function QuoteSummarySection({
             {activeOffer ? OFFER_NAMES[activeOffer] : 'None'}
           </span>
         </div>
+        {activeOffer === 'savings100' && pricePerVisit != null && (
+          <>
+            {[
+              { label: 'Visit 1', price: pricePerVisit,      note: 'standard rate' },
+              { label: 'Visit 2', price: pricePerVisit - 25, note: '−$25 savings' },
+              { label: 'Visit 3', price: pricePerVisit,      note: 'standard rate' },
+              { label: 'Visit 4', price: pricePerVisit - 25, note: '−$25 savings' },
+              { label: 'Visit 5', price: pricePerVisit - 50, note: '−$50 savings' },
+            ].map(({ label, price, note }) => (
+              <div key={label} className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+                <span className="text-slate-500">{label}</span>
+                <span className="text-slate-700">{fmt(price)} <span className="text-slate-400">({note})</span></span>
+              </div>
+            ))}
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-blue-600 font-semibold">Total savings</span>
+              <span className="text-blue-600 font-semibold">$100 across first 5 visits</span>
+            </div>
+          </>
+        )}
+        {activeOffer === 'pkg3' && pkg3PerClean != null && (
+          <>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Price per clean</span>
+              <span className="text-slate-700">{fmt(pkg3PerClean)} <span className="text-slate-400">(−$25 off standard)</span></span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Total (3 cleans)</span>
+              <span className="font-semibold text-slate-800">{fmt(pkg3PerClean * 3)}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-amber-600 font-medium">Note</span>
+              <span className="text-amber-600">Not recurring — follow up after 3rd clean</span>
+            </div>
+          </>
+        )}
+        {activeOffer === 'freeAddon' && (
+          <>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Selected add-on</span>
+              <span className="font-medium text-slate-700">{addonChoice}</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Applied on</span>
+              <span className="text-slate-700">Any visit of their choice</span>
+            </div>
+            <div className="flex justify-between px-4 py-2 bg-blue-50/60 text-xs">
+              <span className="text-slate-500">Value</span>
+              <span className="font-semibold text-slate-700">$59</span>
+            </div>
+          </>
+        )}
         {pricing && (
           <div className="flex justify-between px-4 py-3 bg-slate-50 rounded-b-xl">
             <span className="text-slate-400 text-xs">Standard clean (non-recurring)</span>
@@ -1168,6 +1227,7 @@ export default function NDFUTool() {
                 quoteServiceType={quoteServiceType}
                 setQuoteServiceType={setQuoteServiceType}
                 activeOffer={activeOffer}
+                addonChoice={addonChoice}
                 setShowBooking={setShowBooking}
                 setBookingType={setBookingType}
               />
