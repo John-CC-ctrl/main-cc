@@ -172,28 +172,29 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
             </div>
           </div>
 
+          {pricing.pac.length > 0 && (
           <div>
             <div className="text-sm font-medium text-slate-600 mb-1">Priority Area Clean — Downsell Option</div>
             <p className="text-xs text-slate-400 italic mb-3">If the whole home rate feels too high, offer a focused clean of high-traffic areas at fewer labor hours.</p>
             <div className="flex gap-2 mb-3">
-              {['A', 'B', 'C'].map((opt) => (
-                <PacToggle key={opt} label={`Option ${opt} — ${pricing.pac[opt].hrs} hrs`} selected={pacSel === opt} onClick={() => setPacSel(opt)} />
+              {pricing.pac.map((p, i) => (
+                <PacToggle key={i} label={`Option ${'ABC'[i]} — ${p.hrs} hrs`} selected={pacSel === i} onClick={() => setPacSel(i)} />
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {['A', 'B', 'C'].map((opt) => {
-                const p = pricing.pac[opt]
-                return (
-                  <div key={opt} className={`rounded-xl border-2 px-3 py-3 text-center ${pacSel === opt ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
-                    <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Option {opt}</div>
-                    <div className="text-xs text-slate-400 mb-1">{p.hrs} hrs</div>
-                    <div className="text-xl font-bold text-slate-800">{fmt(p.price)}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">one-time</div>
-                  </div>
-                )
-              })}
+            <div className={`grid gap-3`} style={{ gridTemplateColumns: `repeat(${pricing.pac.length}, minmax(0, 1fr))` }}>
+              {pricing.pac.map((p, i) => (
+                <div key={i} className={`rounded-xl border-2 px-3 py-3 ${pacSel === i ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+                  <div className="text-xs font-semibold text-slate-500 uppercase mb-1 text-center">Option {'ABC'[i]} — {p.hrs} hrs</div>
+                  {[['weekly','Wkly'],['biweekly','Bi-Wkly'],['monthly','Mo']].map(([freq, label]) => (
+                    <div key={freq} className={`flex justify-between text-xs px-2 py-1 rounded-lg mt-0.5 ${recurSel === freq ? 'bg-blue-100 font-semibold text-blue-700' : 'text-slate-600'}`}>
+                      <span>{label}</span><span>{fmt(p[freq])}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           </div>
+          )}
         </>
       )}
     </div>
@@ -326,7 +327,7 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast, callMode 
     '[WEEKLY]':     pricing ? fmt(pricing.weeklyPx)   : null,
     '[BI-WEEKLY]':  pricing ? fmt(pricing.biweeklyPx) : null,
     '[MONTHLY]':    pricing ? fmt(pricing.monthlyPx)  : null,
-    '[PAC PRICE]':  pac     ? fmt(pac.price)         : null,
+    '[PAC PRICE]':  pac     ? fmt(pac.biweekly)       : null,
   }
 
   const handlePositive = () => {
@@ -491,19 +492,18 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast, callMode 
           />
 
           {/* PAC options inline */}
-          {pricing ? (
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              {(['A', 'B', 'C']).map((opt) => {
-                const p = pricing.pac[opt]
-                return (
-                  <div key={opt} className={`rounded-xl border-2 px-3 py-3 text-center ${pacSel === opt ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
-                    <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Option {opt}</div>
-                    <div className="text-lg font-bold text-slate-800">{fmt(p.price)}</div>
-                    <div className="text-xs text-slate-400">{p.hrs} hrs</div>
-                    <div className="text-xs text-slate-500 mt-1">Bi-wkly {fmt(p.biweekly)}</div>
-                  </div>
-                )
-              })}
+          {pricing && pricing.pac.length > 0 ? (
+            <div className={`grid gap-3 text-sm`} style={{ gridTemplateColumns: `repeat(${pricing.pac.length}, minmax(0, 1fr))` }}>
+              {pricing.pac.map((p, i) => (
+                <div key={i} className={`rounded-xl border-2 px-3 py-3 ${pacSel === i ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+                  <div className="text-xs font-semibold text-slate-500 uppercase mb-1 text-center">Option {'ABC'[i]} — {p.hrs} hrs</div>
+                  {[['weekly','Wkly'],['biweekly','Bi-Wkly'],['monthly','Mo']].map(([freq, label]) => (
+                    <div key={freq} className="flex justify-between text-xs px-1 py-0.5 text-slate-600">
+                      <span>{label}</span><span>{fmt(p[freq])}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
           ) : (
             <p className="text-xs text-slate-400 italic">Enter sqft above to show PAC pricing</p>
@@ -1399,7 +1399,7 @@ export default function NDFUTool() {
 
   const [sqft, setSqft]               = useState('')
   const [recurSel, setRecurSel]       = useState('biweekly')
-  const [pacSel, setPacSel]           = useState('B')
+  const [pacSel, setPacSel]           = useState(0)
   const [activeOffer, setActiveOffer] = useState(null)
   const [addonChoice, setAddonChoice] = useState(ADDON_OPTIONS[0])
   const [callNotes, setCallNotes]     = useState('')
@@ -1425,7 +1425,7 @@ export default function NDFUTool() {
   const handleStartOver = () => {
     setSqft('')
     setRecurSel('biweekly')
-    setPacSel('B')
+    setPacSel(0)
     setActiveOffer(null)
     setAddonChoice(ADDON_OPTIONS[0])
     setCallNotes('')
@@ -1503,6 +1503,18 @@ export default function NDFUTool() {
                 </div>
               ))}
 
+              {callMode !== null && (
+                <ScriptSection
+                  key={scriptKey}
+                  pricing={pricing}
+                  pacSel={pacSel}
+                  firstName={firstName}
+                  toast={toast}
+                  showToast={showToast}
+                  callMode={callMode}
+                />
+              )}
+
               <OffersSection
                 activeOffer={activeOffer}
                 setActiveOffer={setActiveOffer}
@@ -1539,18 +1551,6 @@ export default function NDFUTool() {
                   userName={firstName}
                   callNotes={callNotes}
                   onReset={handleStartOver}
-                />
-              )}
-
-              {callMode !== null && (
-                <ScriptSection
-                  key={scriptKey}
-                  pricing={pricing}
-                  pacSel={pacSel}
-                  firstName={firstName}
-                  toast={toast}
-                  showToast={showToast}
-                  callMode={callMode}
                 />
               )}
             </div>
