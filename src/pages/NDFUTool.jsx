@@ -135,9 +135,6 @@ function PacToggle({ label, selected, onClick }) {
 function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel, setPacSel }) {
   const pac = pricing?.pac[pacSel]
 
-  const whPx  = pricing ? { weekly: pricing.weeklyPx, biweekly: pricing.biweeklyPx, monthly: pricing.monthlyPx }[recurSel] : null
-  const showPac = whPx != null && ['A', 'B', 'C'].every((o) => pricing.pac[o][recurSel] < whPx)
-
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <h2 className="text-base font-semibold text-slate-700">Property &amp; Pricing</h2>
@@ -175,28 +172,28 @@ function PricingSection({ pricing, sqft, setSqft, recurSel, setRecurSel, pacSel,
             </div>
           </div>
 
-          {showPac && (
           <div>
-            <div className="text-sm font-medium text-slate-600 mb-2">Priority Area Clean (PAC)</div>
-            <div className="flex gap-2 mb-4">
+            <div className="text-sm font-medium text-slate-600 mb-1">Priority Area Clean — Downsell Option</div>
+            <p className="text-xs text-slate-400 italic mb-3">If the whole home rate feels too high, offer a focused clean of high-traffic areas at fewer labor hours.</p>
+            <div className="flex gap-2 mb-3">
               {['A', 'B', 'C'].map((opt) => (
                 <PacToggle key={opt} label={`Option ${opt} — ${pricing.pac[opt].hrs} hrs`} selected={pacSel === opt} onClick={() => setPacSel(opt)} />
               ))}
             </div>
-            {pac && (
-              <div className="flex gap-3">
-                <RecurringCard label="Weekly"    price={pac.weekly}   selected={false} onClick={() => {}} />
-                <RecurringCard label="Bi-Weekly" price={pac.biweekly} selected={false} onClick={() => {}} />
-                <RecurringCard label="Monthly"   price={pac.monthly}  selected={false} onClick={() => {}} />
-                <div className="flex-1 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-center">
-                  <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">One-Time</div>
-                  <div className="text-2xl font-bold text-slate-700">{fmt(pac.price)}</div>
-                  <div className="text-xs mt-0.5 text-slate-400">{pac.hrs} hrs</div>
-                </div>
-              </div>
-            )}
+            <div className="grid grid-cols-3 gap-3">
+              {['A', 'B', 'C'].map((opt) => {
+                const p = pricing.pac[opt]
+                return (
+                  <div key={opt} className={`rounded-xl border-2 px-3 py-3 text-center ${pacSel === opt ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white'}`}>
+                    <div className="text-xs font-semibold text-slate-500 uppercase mb-1">Option {opt}</div>
+                    <div className="text-xs text-slate-400 mb-1">{p.hrs} hrs</div>
+                    <div className="text-xl font-bold text-slate-800">{fmt(p.price)}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">one-time</div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-          )}
         </>
       )}
     </div>
@@ -306,7 +303,7 @@ function VoicemailCard({ vmKey, vm, subs, copySms }) {
 
 // ─── Section 3 — Call Script ─────────────────────────────────
 
-function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
+function ScriptSection({ pricing, pacSel, firstName, toast, showToast, callMode }) {
   // Phase controls which parts of the script are revealed
   const [phase, setPhase] = useState('opening')
   // 'opening' | 'negative' | 'positive' | 'objection' | 'not_interested' | 'pac_interested'
@@ -363,39 +360,9 @@ function ScriptSection({ pricing, pacSel, firstName, toast, showToast }) {
     showToast('SMS template copied!')
   }
 
-  const [callMode, setCallMode] = useState(null) // null | 'live' | 'voicemail'
-  const handleUndo = () => {
-    setCallMode(null)
-    setPhase('opening')
-    setOpen((o) => ({ ...o, pitch: false, objection: false, review: false }))
-  }
-
   return (
     <div className="space-y-4">
       <h2 className="text-base font-semibold text-slate-700 px-1">Call Script</h2>
-
-      {/* ── Pickup / Voicemail toggle ── */}
-      {callMode === null ? (
-        <div className="flex gap-3">
-          <button
-            onClick={() => setCallMode('live')}
-            className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
-          >
-            📞 Client Picked Up
-          </button>
-          <button
-            onClick={() => setCallMode('voicemail')}
-            className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
-          >
-            📵 Went to Voicemail
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 text-sm text-slate-500 px-1">
-          <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
-          <button onClick={handleUndo} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
-        </div>
-      )}
 
       {/* ── Live call script ── */}
       {callMode === 'live' && (
@@ -1376,6 +1343,7 @@ export default function NDFUTool() {
   const [callNotes, setCallNotes]     = useState('')
   const [toast, setToast]             = useState(null)
 
+  const [callMode, setCallMode]                 = useState(null)
   const [quoteServiceType, setQuoteServiceType] = useState('whole_home')
   const [showBooking, setShowBooking]           = useState(false)
   const [bookingType, setBookingType]           = useState(null)
@@ -1398,6 +1366,7 @@ export default function NDFUTool() {
     setActiveOffer(null)
     setAddonChoice(ADDON_OPTIONS[0])
     setCallNotes('')
+    setCallMode(null)
     setQuoteServiceType('whole_home')
     setShowBooking(false)
     setBookingType(null)
@@ -1447,6 +1416,29 @@ export default function NDFUTool() {
                 pacSel={pacSel}
                 setPacSel={setPacSel}
               />
+              {/* ── Pickup / Voicemail toggle ── */}
+              {pricing && (callMode === null ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCallMode('live')}
+                    className="flex-1 py-3 rounded-xl border-2 border-green-300 bg-green-50 text-green-800 font-semibold text-sm hover:bg-green-100 transition-colors"
+                  >
+                    📞 Client Picked Up
+                  </button>
+                  <button
+                    onClick={() => setCallMode('voicemail')}
+                    className="flex-1 py-3 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-semibold text-sm hover:bg-slate-100 transition-colors"
+                  >
+                    📵 Went to Voicemail
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-200 rounded-xl px-4 py-3">
+                  <span>{callMode === 'live' ? '📞 Client picked up' : '📵 Went to voicemail'}</span>
+                  <button onClick={() => setCallMode(null)} className="text-blue-500 hover:underline text-xs ml-1">Undo</button>
+                </div>
+              ))}
+
               <OffersSection
                 activeOffer={activeOffer}
                 setActiveOffer={setActiveOffer}
@@ -1480,14 +1472,17 @@ export default function NDFUTool() {
                 />
               )}
 
-              <ScriptSection
-                key={scriptKey}
-                pricing={pricing}
-                pacSel={pacSel}
-                firstName={firstName}
-                toast={toast}
-                showToast={showToast}
-              />
+              {callMode !== null && (
+                <ScriptSection
+                  key={scriptKey}
+                  pricing={pricing}
+                  pacSel={pacSel}
+                  firstName={firstName}
+                  toast={toast}
+                  showToast={showToast}
+                  callMode={callMode}
+                />
+              )}
             </div>
 
             {/* Sticky notes sidebar — desktop only */}
