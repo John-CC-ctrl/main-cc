@@ -660,9 +660,15 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
   const [frequency, setFrequency]   = useState(FREQ_LABELS[recurSel] || 'Bi-Weekly')
   const [price, setPrice]           = useState(initRecurPrice)
   const [days, setDays]             = useState([])
+  const [noPreference, setNoPreference] = useState(false)
   const [time, setTime]             = useState('')
+  const [timeOther, setTimeOther]   = useState('')
   const [cleaner, setCleaner]       = useState('')
   const [instructions, setInstructions] = useState('')
+  const [callRecLink, setCallRecLink]   = useState('')
+  const [callTranscript, setCallTranscript] = useState('')
+
+  const [clientOpen, setClientOpen] = useState(false)
 
   const [pkg3Price, setPkg3Price]   = useState(init3PackPrice)
   const [pkg3Notes, setPkg3Notes]   = useState('')
@@ -777,32 +783,47 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
       {bookingType === 'recurring' && (
         <div className="space-y-4">
-          {/* Name row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
-              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
-            </div>
-            <div>
-              <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
-              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
-            </div>
-          </div>
-
-          {/* Contact row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
-              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
-            </div>
-            <div>
-              <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
-              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
-            </div>
+          {/* Client Details collapsible */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setClientOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
+            >
+              <span className="text-sm font-semibold text-slate-700">Client Details</span>
+              <span className="text-xs text-slate-400">{clientOpen ? '▲' : '▼'}</span>
+            </button>
+            {!clientOpen && (
+              <p className="px-4 py-2 text-xs text-slate-400 italic bg-white border-t border-slate-100">Complete these fields when ready to submit to the team.</p>
+            )}
+            {clientOpen && (
+              <div className="px-4 pb-4 pt-3 bg-white border-t border-slate-100 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>First Name *</FieldLabel>
+                    <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+                    {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Last Name *</FieldLabel>
+                    <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+                    {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Email *</FieldLabel>
+                    <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+                    {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Phone *</FieldLabel>
+                    <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+                    {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Service type */}
@@ -838,16 +859,26 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
             <FieldLabel>Preferred Days</FieldLabel>
             <div className="flex gap-2 flex-wrap mt-1">
               {DAYS_LIST.map((d) => (
-                <label key={d} className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-700">
+                <label key={d} className={`flex items-center gap-1.5 text-sm text-slate-700 ${noPreference ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="checkbox"
-                    checked={days.includes(d)}
-                    onChange={() => toggleDay(d)}
+                    checked={!noPreference && days.includes(d)}
+                    onChange={() => !noPreference && toggleDay(d)}
+                    disabled={noPreference}
                     className="rounded accent-blue-600"
                   />
                   {d}
                 </label>
               ))}
+              <label className="flex items-center gap-1.5 cursor-pointer text-sm text-slate-500 italic ml-1">
+                <input
+                  type="checkbox"
+                  checked={noPreference}
+                  onChange={(e) => { setNoPreference(e.target.checked); if (e.target.checked) setDays([]) }}
+                  className="rounded accent-blue-600"
+                />
+                No Preference / Does Not Matter
+              </label>
             </div>
           </div>
 
@@ -857,8 +888,17 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
             <SelectInput
               value={time}
               onChange={setTime}
-              options={['', 'Morning', 'Afternoon', 'Evening']}
+              options={['', 'Morning', 'Afternoon', 'Other']}
             />
+            {time === 'Other' && (
+              <input
+                type="text"
+                value={timeOther}
+                onChange={(e) => setTimeOther(e.target.value)}
+                placeholder="Please specify preferred time or any timing notes."
+                className="mt-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            )}
           </div>
 
           {/* Cleaner + disclaimer */}
@@ -878,7 +918,7 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               onChange={(e) => setInstructions(e.target.value)}
               rows={3}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
-              placeholder="Pets, access codes, areas to avoid..."
+              placeholder="Are there any other special preferences you'd like us to note on your work order so we can continue to do a great job for you consistently?"
             />
           </div>
 
@@ -891,6 +931,22 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               </div>
             </div>
           )}
+
+          {/* Call recording + transcript */}
+          <div>
+            <FieldLabel>Paste Call Recording Link (Dialpad or GHL)</FieldLabel>
+            <TextInput value={callRecLink} onChange={setCallRecLink} placeholder="Paste link here..." />
+          </div>
+          <div>
+            <FieldLabel>Paste Call Transcript</FieldLabel>
+            <textarea
+              value={callTranscript}
+              onChange={(e) => setCallTranscript(e.target.value)}
+              rows={4}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Paste full transcript here if available..."
+            />
+          </div>
 
           {/* Submit */}
           <button
@@ -905,30 +961,49 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
 
       {bookingType === '3pack' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>First Name *</FieldLabel>
-              <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
-              {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
-            </div>
-            <div>
-              <FieldLabel>Last Name *</FieldLabel>
-              <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
-              {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
-            </div>
+          {/* Client Details collapsible */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setClientOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
+            >
+              <span className="text-sm font-semibold text-slate-700">Client Details</span>
+              <span className="text-xs text-slate-400">{clientOpen ? '▲' : '▼'}</span>
+            </button>
+            {!clientOpen && (
+              <p className="px-4 py-2 text-xs text-slate-400 italic bg-white border-t border-slate-100">Complete these fields when ready to submit to the team.</p>
+            )}
+            {clientOpen && (
+              <div className="px-4 pb-4 pt-3 bg-white border-t border-slate-100 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>First Name *</FieldLabel>
+                    <TextInput value={first} onChange={setFirst} placeholder="Jane" error={!!errors.first} />
+                    {errors.first && <p className="text-xs text-red-500 mt-0.5">{errors.first}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Last Name *</FieldLabel>
+                    <TextInput value={last} onChange={setLast} placeholder="Smith" error={!!errors.last} />
+                    {errors.last && <p className="text-xs text-red-500 mt-0.5">{errors.last}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Phone *</FieldLabel>
+                    <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
+                    {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
+                  </div>
+                  <div>
+                    <FieldLabel>Email *</FieldLabel>
+                    <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
+                    {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <FieldLabel>Phone *</FieldLabel>
-              <TextInput type="tel" value={phone} onChange={setPhone} placeholder="(702) 555-0100" error={!!errors.phone} />
-              {errors.phone && <p className="text-xs text-red-500 mt-0.5">{errors.phone}</p>}
-            </div>
-            <div>
-              <FieldLabel>Email *</FieldLabel>
-              <TextInput type="email" value={email} onChange={setEmail} placeholder="jane@example.com" error={!!errors.email} />
-              {errors.email && <p className="text-xs text-red-500 mt-0.5">{errors.email}</p>}
-            </div>
-          </div>
+
           <div>
             <FieldLabel>Price per clean ($)</FieldLabel>
             <TextInput type="number" value={pkg3Price} onChange={setPkg3Price} placeholder="0" error={!!errors.pkg3Price} />
@@ -942,6 +1017,22 @@ function BookingForm({ bookingType, pricing, recurSel, pacSel, quoteServiceType,
               rows={3}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
               placeholder="Preferred days, times, any special notes..."
+            />
+          </div>
+
+          {/* Call recording + transcript */}
+          <div>
+            <FieldLabel>Paste Call Recording Link (Dialpad or GHL)</FieldLabel>
+            <TextInput value={callRecLink} onChange={setCallRecLink} placeholder="Paste link here..." />
+          </div>
+          <div>
+            <FieldLabel>Paste Call Transcript</FieldLabel>
+            <textarea
+              value={callTranscript}
+              onChange={(e) => setCallTranscript(e.target.value)}
+              rows={4}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              placeholder="Paste full transcript here if available..."
             />
           </div>
 
